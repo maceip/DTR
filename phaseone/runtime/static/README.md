@@ -69,6 +69,17 @@ uv run dtr chat .work/chat --backend mlx --prompt "hello"
 
 mlx loads only the files listed in the package, checked by hash. a local server loads its own weights, so dtr can't verify them; results report `weights_verified: false`, and release checks still run before activation. [mac engines](docs/mac-engines.md)
 
+### which variant should you ship?
+
+run every variant your machine can run on your own prompts or images, and see quality, speed and memory side by side
+
+```sh
+echo '{"prompt": "which planet is the red planet? one word", "expected": "mars"}' > .work/prompts.jsonl
+uv run dtr compare .work/chat --inputs .work/prompts.jsonl
+```
+
+on qwen3 0.6b and 8 short prompts, mlx 8-bit and llama-server q8_0 answered all 8 correctly and identically; mlx 4-bit got 7 of 8 using 0.44 gb instead of 0.72 gb. the table is followed by every variant's output for each input. [compare](docs/compare.md)
+
 ## 2. put it in your app
 
 embed the sdk and its engines: python for macos and linux, [kotlin for android](sdk/android/), [typescript for the browser](sdk/typescript/). your users install your app
