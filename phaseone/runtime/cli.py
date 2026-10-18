@@ -153,6 +153,15 @@ def parser():
             item.add_argument("tool_name")
             item.add_argument("--arguments", default="{}")
             item.add_argument("--action-id", required=True)
+    compare = command("compare", "Run every variant of a model on your inputs and rank quality, speed and memory")
+    compare.add_argument("package", help="Local package path")
+    compare.add_argument("--inputs", type=Path, required=True,
+                         help='JSONL: {"prompt"|"messages"|"image", optional "expected"} per line')
+    compare.add_argument("--model", help="Logical model; default: the package's only model")
+    compare.add_argument("--reference", help="Variant to compare against; default: the one with the most weight bytes")
+    compare.add_argument("--max-tokens", type=int, default=128)
+    compare.add_argument("--timeout", type=float, default=120)
+    compare.add_argument("--json", action="store_true", help="Emit the full result as JSON instead of a table")
     serve = command("serve", "Serve packages through the shared API and browser console")
     serve.add_argument("--package", action="append", type=Path, required=True)
     serve.add_argument("--host", default="127.0.0.1")
@@ -303,6 +312,15 @@ def run(args):
         app = runtime.application(args.package) if getattr(args, "remote", None) else runtime.load(args.package)
         if args.command == "install":
             return dump(app.describe())
+        if args.command == "compare":
+            from .compare import compare, read_inputs, render
+
+            models = list(app.package.manifest.models)
+            if not args.model and len(models) != 1:
+                raise RuntimeFault("model_required", f"Choose --model from {models}")
+            result = compare(app, args.model or models[0], read_inputs(args.inputs), reference=args.reference,
+                             base=args.inputs.resolve().parent, max_tokens=args.max_tokens, timeout_seconds=args.timeout)
+            return dump(result) if args.json else print(render(result))
         if args.command == "tool":
             return dump(app.invoke_tool(args.tool_name, document(args.arguments), action_id=args.action_id))
         options = {key: getattr(args, key) for key in ("backend", "variant", "accelerator", "allow_fallback")}
