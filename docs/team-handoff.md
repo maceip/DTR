@@ -6,6 +6,9 @@ optional future implementation tasks, not unfinished work from the README and
 example-folder request. The three reserved application folders under `examples/`
 remain empty until the team chooses what to build.
 
+Runtime and repository fixes found in code review are tracked separately in
+[review follow-ups](review-followups.md).
+
 ## Tool calling: working foundation, incomplete model integration
 
 **Already implemented:** shared tool-call shapes, JSON/schema validation,

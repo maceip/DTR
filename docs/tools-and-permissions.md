@@ -64,7 +64,9 @@ affected resources. Do data reads and effects in the checked handler, not in the
 resolver. For tenant data, resolve the record's ownership from your database;
 do not trust a proposed `ownerId`. New rules from the app's consent system can
 be installed with `permissions.replace(document)`. The next invocation checks
-the new policy, including requests for cached tool results.
+the new policy, including requests for cached tool results. In Python,
+`replace()` currently waits for in-flight policy-checked tool calls to return;
+see [review follow-ups](https://github.com/maceip/DTR/blob/main/docs/review-followups.md#policy-lock-held-for-the-whole-tool-call).
 
 In Python, pass `permissions=PermissionPolicy(document), subject="alice"` to
 `Runtime`, then register tools with `runtime.tool_gateway.register(...,
