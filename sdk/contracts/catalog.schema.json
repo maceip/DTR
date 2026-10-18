@@ -1124,7 +1124,9 @@
         "backend": {
           "enum": [
             "executorch",
-            "litert"
+            "litert",
+            "mlx",
+            "local_server"
           ],
           "title": "Backend",
           "type": "string"

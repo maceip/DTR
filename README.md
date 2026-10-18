@@ -41,13 +41,44 @@ checked 2026-10-18 on apple silicon, macos 25.5, python 3.12, executorch 1.5.1 a
 | native engine tests | 10 passed |
 | model update lifecycle on both engines | passed: install, rollback, corrupt download, failed check, fallback, requalification |
 
-both engines run on the cpu, with executorch using xnnpack. metal, core ml and mlx aren't wired in yet. the first `uv sync` and `dtr build` download torch and the model weights; that took about 30 minutes here
+executorch and litert run on the cpu, with executorch using xnnpack. the first `uv sync` and `dtr build` download torch and the model weights; that took about 30 minutes here
 
 run the native engine tests after the `uv sync` above
 
 ```sh
 uv run --group dev pytest tests/test_runtime_native.py
 ```
+
+### use the mac gpu
+
+two more engines run chat models on a mac: **mlx** runs on the metal gpu inside your app, and **local_server** talks to a model server already running on the machine (ollama, lm studio, llama.cpp's `llama-server`, omlx). package an [mlx-community](https://huggingface.co/mlx-community) model or a server binding, then chat with either
+
+```sh
+uv sync --extra mlx
+uv run dtr import path/to/Qwen3-0.6B-4bit .work/chat --backend mlx --model assistant
+echo '{"base_url": "http://127.0.0.1:11434/v1", "model": "qwen3:0.6b"}' > .work/ollama.json
+uv run dtr import .work/ollama.json .work/chat --backend local_server --model assistant --context 4096
+uv run dtr chat .work/chat --backend mlx --prompt "hello"
+```
+
+| variant (qwen3 0.6b, m5 max) | answer to "name three primary colors, comma separated" | speed | peak memory |
+| --- | --- | --- | --- |
+| mlx 4-bit | `1. Red 2. Blue 3. Yellow` | 426 tok/s | 0.39 gb |
+| mlx 8-bit | `red, blue, yellow` | 366 tok/s | 0.68 gb |
+| llama-server q8_0, through `local_server` | `red, blue, yellow` | – | – |
+
+mlx loads only the files listed in the package, checked by hash. a local server loads its own weights, so dtr can't verify them; results report `weights_verified: false`, and release checks still run before activation. [mac engines](docs/mac-engines.md)
+
+### which variant should you ship?
+
+run every variant your machine can run on your own prompts or images, and see quality, speed and memory side by side
+
+```sh
+echo '{"prompt": "which planet is the red planet? one word", "expected": "mars"}' > .work/prompts.jsonl
+uv run dtr compare .work/chat --inputs .work/prompts.jsonl
+```
+
+on qwen3 0.6b and 8 short prompts, mlx 8-bit and llama-server q8_0 answered all 8 correctly and identically; mlx 4-bit got 7 of 8 using 0.44 gb instead of 0.72 gb. the table is followed by every variant's output for each input. [compare](docs/compare.md)
 
 ## 2. put it in your app
 

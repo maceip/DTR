@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Name = Annotated[str, Field(pattern=r"^[A-Za-z][A-Za-z0-9_.-]{0,95}$")]
-BackendName = Literal["executorch", "litert"]
+BackendName = Literal["executorch", "litert", "mlx", "local_server"]
 DType = Literal[
     "float16", "float32", "float64", "int8", "uint8", "int16", "uint16",
     "int32", "uint32", "int64", "uint64", "bool",
@@ -148,6 +148,8 @@ class Variant(Contract):
             raise ValueError("ExecuTorch uses program or llm engines")
         if self.backend == "litert" and self.engine == "program":
             raise ValueError("LiteRT uses compiled, interpreter, or llm engines")
+        if self.backend in ("mlx", "local_server") and self.engine != "llm":
+            raise ValueError("MLX and local server variants use the llm engine")
         if self.engine == "llm" and self.chat is None:
             raise ValueError("An LLM variant requires a chat contract")
         if self.engine != "llm" and not self.signatures:

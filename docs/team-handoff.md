@@ -92,7 +92,7 @@ these notes were moved from the readme so the team keeps the testing details
 
 | device | notes |
 | --- | --- |
-| macos | apple silicon cpu inference and chat through executorch and litert have been tested; metal and core ml have not |
+| macos | apple silicon cpu inference and chat through executorch and litert have been tested; mlx chat on the metal gpu and the local_server engine against llama-server have been tested; core ml has not; ollama, lm studio and omlx use the same openai-compatible api as llama-server but were not run |
 | android | pixel inference and model updates have been tested; a separate app tested cpu and gpu adapter updates; xiaomi installation was blocked by device policy; qualcomm phone npu execution has not been tested |
 | linux / iot | vision and chat now run through both cpu engines on the physical ventuno q; see the reconnect notes below for camera and npu status |
 | windows | intended for snapdragon laptops and ordinary development machines; native integration, packaging and device testing are still needed |
@@ -165,3 +165,5 @@ on macos both logical models selected litert cpu; on the board the screen reader
 the final camera check decoded 20 distinct jpeg frames in 2.644 seconds at 720 × 1280; the real camera image then went through the vision model, which returned no visible command and held execution while confirming the warning led — point the brio at `/screen` for the physical terminal demonstration
 
 local reports are `.work/gate-hybrid-board-results.json`, `.work/gate-mac-results.json`, `.work/gate-final-camera-result.json`, `.work/camera-proof/gate-final-video.json` and `.work/qnn-process-lifetime.json`; the example wheel includes its ui, camera code and test workspace
+
+after combining the qnn adapter with the team's mac engines and model-comparison changes, the python runtime and gate suite passed 175 tests with one optional test skipped

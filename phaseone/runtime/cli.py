@@ -11,10 +11,13 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
+from typing import get_args
 
 from .errors import RuntimeFault
 from .package import create_key, install, load_package, pack, read_json, sign_package
-from .schema import Manifest
+from .schema import BackendName, Manifest
+
+BACKENDS = get_args(BackendName)
 
 
 def dump(value):
@@ -38,7 +41,7 @@ def token_file(path: Path, *, create=False):
 
 
 def parser():
-    root = argparse.ArgumentParser(description="PHASEONE Runtime — one application across ExecuTorch and LiteRT")
+    root = argparse.ArgumentParser(description="PHASEONE Runtime — one application across ExecuTorch, LiteRT, MLX and local model servers")
     root.add_argument("--version", action="version", version="PHASEONE Runtime 0.3.0")
     commands = root.add_subparsers(dest="command", required=True)
     parsers = {}
@@ -61,7 +64,7 @@ def parser():
             item.add_argument("catalog")
             item.add_argument("--contract", required=True)
             item.add_argument("--lineage", action="append", required=True)
-            item.add_argument("--backend", choices=["executorch", "litert"])
+            item.add_argument("--backend", choices=BACKENDS)
             item.add_argument("--accelerator", choices=["cpu", "gpu", "npu"], action="append")
             item.add_argument("--allow-fallback", action="store_true", help="Try another allowed candidate if qualification fails")
     for name in ("inspect", "verify", "install"):
@@ -84,13 +87,15 @@ def parser():
     build.add_argument("--backend", choices=["executorch", "litert"], action="append")
     build.add_argument("--executorch-python", type=Path)
     build.add_argument("--litert-python", type=Path)
-    importer = command("import", "Package an existing .pte, .tflite or .litertlm artifact")
+    importer = command("import", "Package an existing .pte, .tflite or .litertlm artifact, an MLX model "
+                                 "directory, or a local model server binding (JSON: base_url, model)")
     importer.add_argument("source", type=Path)
     importer.add_argument("output", type=Path)
-    importer.add_argument("--backend", choices=["executorch", "litert"], required=True)
+    importer.add_argument("--backend", choices=BACKENDS, required=True)
     importer.add_argument("--variant")
     importer.add_argument("--engine", choices=["program", "compiled", "interpreter", "llm"])
-    importer.add_argument("--accelerator", choices=["cpu", "gpu", "npu"], default="cpu")
+    importer.add_argument("--accelerator", choices=["cpu", "gpu", "npu"],
+                          help="Default: gpu for mlx, cpu otherwise")
     importer.add_argument("--delegate")
     importer.add_argument("--soc")
     importer.add_argument("--runtime-version")
@@ -106,7 +111,7 @@ def parser():
         item.add_argument("--package-version", default="1.0.0")
         item.add_argument("--model", default="model")
     def selection(item):
-        item.add_argument("--backend", choices=["executorch", "litert"])
+        item.add_argument("--backend", choices=BACKENDS)
         item.add_argument("--variant")
         item.add_argument("--accelerator", choices=["cpu", "gpu", "npu"])
         item.add_argument("--allow-fallback", action="store_true")
@@ -148,6 +153,15 @@ def parser():
             item.add_argument("tool_name")
             item.add_argument("--arguments", default="{}")
             item.add_argument("--action-id", required=True)
+    compare = command("compare", "Run every variant of a model on your inputs and rank quality, speed and memory")
+    compare.add_argument("package", help="Local package path")
+    compare.add_argument("--inputs", type=Path, required=True,
+                         help='JSONL: {"prompt"|"messages"|"image", optional "expected"} per line')
+    compare.add_argument("--model", help="Logical model; default: the package's only model")
+    compare.add_argument("--reference", help="Variant to compare against; default: the one with the most weight bytes")
+    compare.add_argument("--max-tokens", type=int, default=128)
+    compare.add_argument("--timeout", type=float, default=120)
+    compare.add_argument("--json", action="store_true", help="Emit the full result as JSON instead of a table")
     serve = command("serve", "Serve packages through the shared API and browser console")
     serve.add_argument("--package", action="append", type=Path, required=True)
     serve.add_argument("--host", default="127.0.0.1")
@@ -246,14 +260,23 @@ def run(args):
             if chat is None:
                 raise RuntimeFault("context_required", "A prompt profile requires --context")
             chat["prompt_format"] = args.prompt_format
+        target = {key: value for key, value in {
+            "accelerator": args.accelerator, "delegate": args.delegate, "soc": args.soc,
+            "runtime_version": args.runtime_version, "systems": args.system, "architectures": args.architecture,
+        }.items() if value not in (None, [])}
+        common = {"name": args.name, "version": args.package_version, "model": args.model, "variant_id": args.variant,
+                  "target": target}
+        if args.backend in ("mlx", "local_server"):
+            from .build import import_mlx, import_server_binding
+
+            chat = chat or ({"tool_protocol": args.tool_protocol} if args.backend == "mlx" else None)
+            importer = import_mlx if args.backend == "mlx" else import_server_binding
+            return dump(importer(args.source, args.output, chat=chat, **common))
         if args.engine == "llm" and chat is None:
             raise RuntimeFault("context_required", "LLM imports require --context with the compiled context limit")
-        return dump(import_model(args.source, args.output, backend=args.backend, name=args.name, version=args.package_version,
-                                 model=args.model, variant_id=args.variant, engine=args.engine, chat=chat,
-                                 target={"accelerator": args.accelerator, "delegate": args.delegate, "soc": args.soc,
-                                         "runtime_version": args.runtime_version, "systems": args.system, "architectures": args.architecture},
+        return dump(import_model(args.source, args.output, backend=args.backend, engine=args.engine, chat=chat,
                                  contract=args.contract, tokenizer=args.tokenizer, tokenizer_config=args.tokenizer_config,
-                                 template=args.template, data=args.data))
+                                 template=args.template, data=args.data, **common))
     if args.command == "token":
         print(token_file(args.token_file or args.state_dir / "host.token"))
         return
@@ -289,6 +312,15 @@ def run(args):
         app = runtime.application(args.package) if getattr(args, "remote", None) else runtime.load(args.package)
         if args.command == "install":
             return dump(app.describe())
+        if args.command == "compare":
+            from .compare import compare, read_inputs, render
+
+            models = list(app.package.manifest.models)
+            if not args.model and len(models) != 1:
+                raise RuntimeFault("model_required", f"Choose --model from {models}")
+            result = compare(app, args.model or models[0], read_inputs(args.inputs), reference=args.reference,
+                             base=args.inputs.resolve().parent, max_tokens=args.max_tokens, timeout_seconds=args.timeout)
+            return dump(result) if args.json else print(render(result))
         if args.command == "tool":
             return dump(app.invoke_tool(args.tool_name, document(args.arguments), action_id=args.action_id))
         options = {key: getattr(args, key) for key in ("backend", "variant", "accelerator", "allow_fallback")}

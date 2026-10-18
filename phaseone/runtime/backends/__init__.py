@@ -2,6 +2,14 @@
 
 
 def create(package, variant, cache_dir):
+    if variant.backend == "mlx":
+        from .mlx import MLXChat
+
+        return MLXChat(package, variant, cache_dir)
+    if variant.backend == "local_server":
+        from .server import LocalServerChat
+
+        return LocalServerChat(package, variant, cache_dir)
     if variant.engine == "llm":
         if variant.backend == "executorch" and variant.chat.runner == "qnn":
             from .qnn import QnnChat

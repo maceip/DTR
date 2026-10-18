@@ -18,6 +18,9 @@ BACKEND_DISTRIBUTIONS = {
     ("litert", "compiled"): "ai-edge-litert",
     ("litert", "interpreter"): "ai-edge-litert",
     ("litert", "llm"): "litert-lm-api",
+    ("mlx", "llm"): "mlx-lm",
+    # The model runs in a server the app does not ship; availability is checked at load.
+    ("local_server", "llm"): None,
 }
 
 
@@ -56,7 +59,7 @@ def discover() -> dict:
         platform.machine().lower(), platform.machine().lower(),
     )
     versions = {}
-    for distribution in sorted({*BACKEND_DISTRIBUTIONS.values(), "transformers"}):
+    for distribution in sorted({*filter(None, BACKEND_DISTRIBUTIONS.values()), "transformers"}):
         try:
             versions[distribution] = importlib.metadata.version(distribution)
         except importlib.metadata.PackageNotFoundError:
@@ -85,6 +88,11 @@ def discover() -> dict:
         _, profile = qnn
         components["executorch.qnn_runner"] = profile["executorch_version"]
         components["qnn.htp"] = profile["qnn_version"]
+    if system == "darwin" and arch == "arm64":
+        try:
+            components["mlx.metal"] = importlib.metadata.version("mlx-metal")
+        except importlib.metadata.PackageNotFoundError:
+            pass
     return {"system": system, "architecture": arch, "os_version": platform.release(),
             "memory_mb": memory_mb, "soc": soc, "runtimes": versions,
             "components": components, "phaseone_version": "0.3.0",
@@ -105,13 +113,13 @@ def compatibility(variant: Variant, host: dict) -> list[str]:
     distribution = BACKEND_DISTRIBUTIONS[(variant.backend, variant.engine)]
     qnn_runner = bool(variant.chat and variant.chat.runner == "qnn")
     installed = (host.get("components", {}).get("executorch.qnn_runner") if qnn_runner
-                 else host["runtimes"].get(distribution))
+                 else host["runtimes"].get(distribution) if distribution else None)
     if qnn_runner and (host["system"] != "linux" or canonical_arch(host["architecture"]) != "arm64"):
         reasons.append("The installed QNN runner requires Linux ARM64")
-    if not installed:
+    if distribution and not installed:
         reasons.append("Install the DTR QNN host runtime" if qnn_runner
                        else f"Install {distribution} for {variant.backend}/{variant.engine}")
-    elif target.runtime_version:
+    elif distribution and target.runtime_version:
         try:
             if installed not in SpecifierSet(target.runtime_version):
                 reasons.append(f"Requires {distribution}{target.runtime_version}; installed {installed}")
