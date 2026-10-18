@@ -1,7 +1,8 @@
 """Shared resolver vectors and hostile/invalid model-delivery boundaries.
 
-Actual execution/activation/rollback checks live in check_runtime_releases.py and
-the Android instrumented suite; these tests exercise their contract boundaries.
+Native execution checks live in check_runtime_releases.py and the Android
+instrumented suite; the stubbed-qualification lifecycle is in
+test_runtime_release_lifecycle.py. These tests exercise contract boundaries.
 """
 
 import base64
