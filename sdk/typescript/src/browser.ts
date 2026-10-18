@@ -43,7 +43,7 @@ export class BrowserRuntime {
   compatibility(pkg: BrowserPackage, model: Model): Compatibility[] {
     return model.variants.map(variant => {
       const reasons: string[] = [], target = variant.target, version = variant.engine === 'llm' ? '0.18.1' : '2.5.3';
-      if (variant.backend !== 'litert') reasons.push('ExecuTorch requires an explicitly paired native host');
+      if (variant.backend !== 'litert') reasons.push(`${variant.backend} requires an explicitly paired native host`);
       if (!target.systems?.includes('web')) reasons.push('Artifact has no declared browser target');
       if (target.architectures?.length && !target.architectures.includes('wasm32')) reasons.push('Artifact does not target wasm32');
       if (target.soc) reasons.push('Browser cannot establish the required SoC identity');

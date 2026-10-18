@@ -18,6 +18,9 @@ BACKEND_DISTRIBUTIONS = {
     ("litert", "compiled"): "ai-edge-litert",
     ("litert", "interpreter"): "ai-edge-litert",
     ("litert", "llm"): "litert-lm-api",
+    ("mlx", "llm"): "mlx-lm",
+    # The model runs in a server the app does not ship; availability is checked at load.
+    ("local_server", "llm"): None,
 }
 
 
@@ -56,7 +59,7 @@ def discover() -> dict:
         platform.machine().lower(), platform.machine().lower(),
     )
     versions = {}
-    for distribution in sorted({*BACKEND_DISTRIBUTIONS.values(), "transformers"}):
+    for distribution in sorted({*filter(None, BACKEND_DISTRIBUTIONS.values()), "transformers"}):
         try:
             versions[distribution] = importlib.metadata.version(distribution)
         except importlib.metadata.PackageNotFoundError:
@@ -78,6 +81,11 @@ def discover() -> dict:
     components = {}
     if versions.get("executorch"):
         components["executorch.xnnpack"] = versions["executorch"]
+    if system == "darwin" and arch == "arm64":
+        try:
+            components["mlx.metal"] = importlib.metadata.version("mlx-metal")
+        except importlib.metadata.PackageNotFoundError:
+            pass
     return {"system": system, "architecture": arch, "os_version": platform.release(),
             "memory_mb": memory_mb, "soc": soc, "runtimes": versions,
             "components": components, "phaseone_version": "0.3.0",
@@ -96,10 +104,10 @@ def compatibility(variant: Variant, host: dict) -> list[str]:
     if target.soc and canonical_soc(target.soc) != canonical_soc(host.get("soc")):
         reasons.append(f"Requires detected SoC {target.soc}; detected {host.get('soc') or 'unknown'}")
     distribution = BACKEND_DISTRIBUTIONS[(variant.backend, variant.engine)]
-    installed = host["runtimes"].get(distribution)
-    if not installed:
+    installed = host["runtimes"].get(distribution) if distribution else None
+    if distribution and not installed:
         reasons.append(f"Install {distribution} for {variant.backend}/{variant.engine}")
-    elif target.runtime_version:
+    elif distribution and target.runtime_version:
         try:
             if installed not in SpecifierSet(target.runtime_version):
                 reasons.append(f"Requires {distribution}{target.runtime_version}; installed {installed}")

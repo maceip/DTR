@@ -92,7 +92,7 @@ these notes were moved from the readme so the team keeps the testing details
 
 | device | notes |
 | --- | --- |
-| macos | apple silicon cpu inference and chat through executorch and litert have been tested; metal and core ml have not |
+| macos | apple silicon cpu inference and chat through executorch and litert have been tested; mlx chat on the metal gpu and the local_server engine against llama-server have been tested; core ml has not; ollama, lm studio and omlx use the same openai-compatible api as llama-server but were not run |
 | android | pixel inference and model updates have been tested; a separate app tested cpu and gpu adapter updates; xiaomi installation was blocked by device policy; qualcomm phone npu execution has not been tested |
 | linux / iot | linux arm64 cpu paths were tested in a vm; ventuno q board npu and camera testing is still needed |
 | windows | intended for snapdragon laptops and ordinary development machines; native integration, packaging and device testing are still needed |

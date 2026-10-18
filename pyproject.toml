@@ -21,6 +21,7 @@ executorch = ["executorch==1.5.1", "torch==2.14.0", "tokenizers>=0.23,<0.24"]
 litert = ["ai-edge-litert==2.3.0", "litert-lm-api==0.18.0"]
 export = ["safetensors>=0.7,<1", "torchvision>=0.29,<0.30"]
 vision = ["transformers==5.20.1", "torchvision>=0.29,<0.30", "num2words>=0.5.14,<0.6"]
+mlx = ["mlx-lm==0.32.2; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.11,<1"]
