@@ -8,6 +8,7 @@ export interface Artifact { path: string; size: number; sha256: string; media_ty
 export interface ChatConfig {
   context_length: number; tokenizer?: string; tokenizer_config?: string; template?: string;
   prompt_format?: 'chatml' | 'llama3';
+  runner?: 'native' | 'qnn'; decoder?: 'gemma3' | 'gemma4' | null;
   modalities: ('text' | 'image' | 'audio')[]; tool_protocol: 'json' | 'native' | 'none';
   processor?: {config: string; image_token: string; image_splitting?: boolean; runner?: 'native' | 'program' | 'gemma4-ple'; vision_inputs?: string[]; image_fit?: 'processor' | 'square_pad'; image_size?: number}; max_images?: number;
   vision_accelerator?: 'cpu' | 'gpu' | 'npu'; audio_accelerator?: 'cpu' | 'gpu' | 'npu';

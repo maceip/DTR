@@ -220,6 +220,31 @@
           ],
           "default": null,
           "title": "Prompt Format"
+        },
+        "runner": {
+          "default": "native",
+          "enum": [
+            "native",
+            "qnn"
+          ],
+          "title": "Runner",
+          "type": "string"
+        },
+        "decoder": {
+          "anyOf": [
+            {
+              "enum": [
+                "gemma3",
+                "gemma4"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decoder"
         }
       },
       "required": [

@@ -46,6 +46,16 @@ export class BrowserPackage {
         if ((variant.engine === 'llm') !== (model.task === 'chat') || (variant.engine === 'llm' && !variant.chat) || (variant.engine !== 'llm' && !Object.keys(variant.signatures || {}).length)) throw new RuntimeError('invalid_package', 'Variant engine and model task disagree');
         if ((variant.backend === 'litert' && variant.engine === 'program') || (variant.backend === 'executorch' && !['program', 'llm'].includes(variant.engine))) throw new RuntimeError('invalid_package', 'Engine does not belong to this backend');
         if (variant.backend === 'executorch' && variant.chat && !variant.chat.tokenizer) throw new RuntimeError('invalid_package', 'ExecuTorch chat requires a tokenizer');
+        if (variant.chat?.runner === 'qnn') {
+          if (variant.backend !== 'executorch' || variant.engine !== 'llm' || variant.target.accelerator !== 'npu'
+              || variant.target.delegate !== 'QnnBackend' || variant.chat.modalities.length !== 1
+              || variant.chat.modalities[0] !== 'text' || !variant.chat.decoder || !variant.chat.template
+              || variant.chat.processor || variant.chat.tool_protocol === 'native') {
+            throw new RuntimeError('invalid_package', 'QNN text runners require ExecuTorch/NPU/QnnBackend, a decoder and template');
+          }
+        } else if (variant.chat?.decoder != null) {
+          throw new RuntimeError('invalid_package', 'The decoder field belongs to the QNN runner');
+        }
         for (const signature of Object.values(variant.signatures || {})) for (const specs of [signature.inputs, signature.outputs]) {
           if (new Set(specs.map(spec => spec.name)).size !== specs.length) throw new RuntimeError('invalid_package', 'Tensor names must be unique');
           for (const spec of specs) {

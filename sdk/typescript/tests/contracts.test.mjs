@@ -73,6 +73,25 @@ test('browser selection rejects native device requirements it cannot establish',
   await runtime.close();
 });
 
+test('browser clients can inspect QNN packages while rejecting native execution', async () => {
+  const qnn = manifest => {
+    manifest.models.model.task = 'chat';
+    const variant = manifest.models.model.variants[0];
+    variant.backend = 'executorch'; variant.engine = 'llm';
+    variant.target = {systems: ['linux'], architectures: ['arm64'], accelerator: 'npu', delegate: 'QnnBackend', soc: 'QCS8275'};
+    variant.chat = {runner: 'qnn', decoder: 'gemma4', context_length: 2000,
+      tokenizer: 'model', template: 'model', modalities: ['text']};
+  };
+  const source = packageSource(qnn);
+  const pkg = await BrowserPackage.open(source.host, source.digest, {cache: false});
+  assert.equal(pkg.manifest.models.model.variants[0].chat.runner, 'qnn');
+  const runtime = new BrowserRuntime(new NativeHost('http://localhost', 'unused'), {stateName: 'qnn-' + crypto.randomUUID()});
+  assert.equal(runtime.compatibility(pkg, pkg.manifest.models.model)[0].compatible, false);
+  await runtime.close();
+  const invalid = packageSource(manifest => { qnn(manifest); manifest.models.model.variants[0].target.accelerator = 'cpu'; });
+  await assert.rejects(BrowserPackage.open(invalid.host, invalid.digest, {cache: false}), {code: 'invalid_package'});
+});
+
 test('durable browser turns reject blind replay and preserve canonical history', async () => {
   const name = 'contract-' + crypto.randomUUID(), host = new NativeHost('http://localhost', 'test');
   const runtime = new BrowserRuntime(host, {stateName: name});
