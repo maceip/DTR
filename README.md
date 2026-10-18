@@ -1,62 +1,21 @@
-# dtr / distributed tensor runtime
+# phaseone
 
-**ship local ai across the devices your customers use without writing a separate integration for every stack**
+**a runtime for shipping local ai across the devices your customers use — without writing a separate integration for every stack**
 
-you build the app. dtr handles model selection, engines and updates inside it. your users install your app and never need to know dtr exists
-
-## why this exists
-
-your model works on your mac. great. now ship it to one of these
+your model works on your laptop. then the [sponsor guide](https://github.com/aaishikasb/qc-executorch-guide/) hands you a different model build and setup for every device
 
 - **mobile** — galaxy s25 ultra, snapdragon 8 elite, sm8750, htp v79
-- **xr** — galaxy xr uses xnnpack cpu or vulkan gpu on the guide's tested retail firmware, which doesn't allow third-party qnn/npu execution
-- **iot** — [ventuno q / qcs8275](https://aihub.qualcomm.com/jobs/jgdd7k7rg) runs inference on linux, with arduino bridge for sensors and controls
+- **xr** — galaxy xr, xnnpack cpu or vulkan gpu
+- **iot** — [ventuno q / qcs8275](https://aihub.qualcomm.com/jobs/jgdd7k7rg), linux and arduino sensors
 - **laptop** — snapdragon x elite, sc8380xp, windows arm64
 
-the models, engines and setup change between devices. a better delegate ships next month and suddenly you're maintaining another integration instead of building your app
+same feature, several integrations. next month a better model or delegate lands and you get to do it again
 
-the [sponsor guide](https://github.com/aaishikasb/qc-executorch-guide/) has separate models and setup for these devices. same feature, several integrations, excellent use of everyone's weekend
+phaseone keeps that work behind one runtime api for text, images, audio, embeddings and tool calls. it selects a compatible packaged model and engine while your app keeps its feature code, tools and permissions
 
-dtr keeps that mess behind one runtime api. executorch and litert/litert-lm run the models. dtr picks compatible versions, loads them and handles their downloads and updates
+## 1. start on your laptop
 
-## what you can build
-
-- text — local chat, streamed replies and tool calls
-- images — classification and image questions using photos, screenshots or camera frames
-- audio — audio input through the python litert-lm adapter with a compatible model
-- tensors — run your own compiled models, including models that produce embeddings
-
-support depends on the model, engine and sdk
-
-## what goes in your app
-
-embed the sdk and the engines you need. python on macos and linux, kotlin on android, typescript for the browser. windows setup is in progress, with ios later
-
-your app keeps its ui, login and data. no extra customer app, dtr account or permanent desktop service
-
-call the same operations on your laptop and the customer's device. dtr selects a model that matches the device and installed engine, then tells you what actually ran
-
-packages include model files, preprocessing, tool definitions and checks. compatible updates must pass those checks before replacing the working version
-
-[android sdk](sdk/android/) · [typescript sdk](sdk/typescript/) · [windows setup](docs/windows.md)
-
-## models and updates
-
-**dtr model cdn** is the delivery service we're building for models matched to each device, downloads after installation, streaming and offline storage
-
-the download and update code works today. it checks signatures and file hashes, tests new releases and lets you roll back. the hosted service and automatic update checks are still being built
-
-compatible model updates can arrive without rebuilding your app. our android prototype also switched between installed executorch and litert engines using downloaded adapters without changing the apk
-
-a new native library can still need an app release. dtr's planned build tools will handle that dependency work
-
-we want the best model for your app's quality, speed and memory needs. today selection uses compatibility, publisher settings and your checks. automatic model comparisons aren't built yet
-
-[how updates work](docs/updates.md)
-
-## try it
-
-from this checkout on macos or supported linux, with python 3.12 and [uv](https://docs.astral.sh/uv/)
+from this checkout on macos or linux, with python 3.12 and [uv](https://docs.astral.sh/uv/), build one image classifier for both engines — the cli is `dtr`
 
 ```sh
 uv sync --extra executorch --extra litert --extra export
@@ -69,18 +28,65 @@ uv run dtr classify .work/vision --model vision \
   --image examples/vision/sample-dog.jpg --backend litert
 ```
 
-one image, two cpu engines, the same app interface. setup downloads dependencies and model weights. sdk installs currently use this source checkout
+same image, same feature, two engines. results include the prediction and engine used. leave out `--backend` to let the runtime select a compatible variant
 
-the exporter supports selected pytorch models. you can also import `.pte`, `.tflite` and `.litertlm` files. automatic npu compilation isn't built yet
+## 2. put it in your app
 
-## your tools, your rules
+embed the sdk and its engines: python for macos and linux, [kotlin for android](sdk/android/), [typescript for the browser](sdk/typescript/). your users install your app
 
-register your tools once. dtr checks arguments and permissions before calling your code, whatever model made the request
+with a python runtime instance, your feature code is
 
-reading a note doesn't mean uploading it or training on it. saving generated code doesn't mean running it. those are separate permissions, checked outside the model
+```python
+app = runtime.load(".work/vision")
+result = app.classify("vision", photo)
+```
 
-permix and gdp-ts support the typescript checks. python and kotlin enforce the same rules. your app supplies identity and consent
+the package carries device-specific variants, preprocessing and labels. your feature calls `vision`; the runtime handles the engine. existing `.pte`, `.tflite` and `.litertlm` models use the same package format
 
-tool calling works, with android's automatic agent loop still to build. fine-tuning is a stub with permission checks and no trainer
+## 3. give it access to what it needs
 
-[tools and permissions](docs/tools-and-permissions.md) · [examples](examples/)
+register your app's tools and use your existing login to set permissions. this policy lets alice read her notes and save generated code
+
+```json
+{"version": 1, "rules": [
+  {"subject": "alice", "resource": "notes:alice", "action": "read", "effect": "allow"},
+  {"subject": "alice", "resource": "code:patch", "action": "write", "effect": "allow"}
+]}
+```
+
+reading someone else's notes, uploading them, running that code and training on the notes each need their own permission. the runtime checks every tool request before your handler runs, including after a model change
+
+try those rules against sample tool requests, then run the proof checks
+
+```sh
+npm --prefix sdk/typescript ci
+npm --prefix sdk/typescript run build
+node examples/permissions/demo.mjs
+npm --prefix sdk/typescript run typecheck
+npm --prefix sdk/typescript run lint:proofs
+```
+
+the typescript gateway uses permix, gdp-ts proofs and the upstream gdp-ts linter. python and android enforce the same resource rules at runtime
+
+## 4. ship it, then improve it
+
+sign and package the model files you just ran
+
+```sh
+uv run dtr keygen .work/publisher.key --trust
+uv run dtr sign .work/vision --key .work/publisher.key
+uv run dtr verify .work/vision --require-signature
+uv run dtr pack .work/vision .work/vision.phaseone
+uv run dtr receipts --verify
+```
+
+publish improved models under the same `vision` capability. with publisher trust and an update policy configured, your app calls
+
+```python
+runtime.releases.update(catalog_url, "vision", policy)
+app = runtime.open("vision")
+```
+
+the runtime selects a device-compatible variant, verifies the download and runs the release's checks before activating it. failed checks keep the working version in place. compatible model updates reach your app without changing its feature code or requiring another app build
+
+[model updates](docs/updates.md) · [tools and permissions](docs/tools-and-permissions.md) · [windows setup](docs/windows.md) · [team handoff](docs/team-handoff.md)
