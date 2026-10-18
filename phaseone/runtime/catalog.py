@@ -13,11 +13,11 @@ from typing import Annotated, Literal
 
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, PrivateAttr, field_validator, model_validator
 
 from .device import BACKEND_DISTRIBUTIONS, canonical_arch, canonical_soc
 from .errors import RuntimeFault
-from .package import canonical, read_json
+from .package import canonical, canonical_source, read_json
 from .schema import Contract, Manifest, Name, Variant, relative_path
 
 CATALOG_LIMIT = 8 * 1024**2
@@ -107,6 +107,7 @@ class Release(Contract):
     model: Name
     base: str
     checks: list[QualificationCheck] = Field(min_length=1, max_length=64)
+    _source_digest: str | None = PrivateAttr(default=None)
 
     @field_validator("base")
     @classmethod
@@ -168,7 +169,15 @@ class Release(Contract):
 
     @property
     def digest(self):
-        return hashlib.sha256(canonical(self.model_dump(mode="json", exclude_none=True))).hexdigest()
+        """Release identity: SHA-256 of the release JSON as published, shared with Android.
+
+        A release decoded from catalog bytes hashes that JSON exactly, including
+        number spelling and omitted defaults. A release built in Python hashes the
+        expanded form that `signed_catalog` publishes.
+        """
+        if self._source_digest:
+            return self._source_digest
+        return hashlib.sha256(canonical_source(self.model_dump(mode="json", exclude_none=True))).hexdigest()
 
 
 class Catalog(Contract):
@@ -306,17 +315,26 @@ def decode_catalog(data: bytes, *, trusted_keys: dict[str, bytes] | None = None,
         raise RuntimeFault("invalid_catalog", "Catalog exceeds its size limit")
     try:
         raw = read_json(data)
+        source = data
         if raw.get("format") == "phaseone.catalog.signed.v1":
             from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
             public = (trusted_keys or {}).get(raw["key_id"])
             if public is None or hashlib.sha256(public).hexdigest() != raw["key_id"]:
                 raise RuntimeFault("untrusted_catalog", "Catalog signing key is not trusted by this app")
-            payload = base64.b64decode(raw["payload"], validate=True)
-            Ed25519PublicKey.from_public_bytes(public).verify(base64.b64decode(raw["signature"], validate=True), payload)
-            raw = read_json(payload)
+            source = base64.b64decode(raw["payload"], validate=True)
+            Ed25519PublicKey.from_public_bytes(public).verify(base64.b64decode(raw["signature"], validate=True), source)
+            raw = read_json(source)
         elif not allow_unsigned:
             raise RuntimeFault("untrusted_catalog", "A signed release catalog is required")
-        return Catalog.model_validate(raw)
+        catalog = Catalog.model_validate(raw)
+        spelled = read_json(source, keep_number_text=True)["releases"]
+        for release, entry in zip(catalog.releases, spelled, strict=True):
+            # Set only when the published JSON differs from the model's expanded
+            # form, so equal releases with the same identity still compare equal.
+            digest = hashlib.sha256(canonical_source(entry)).hexdigest()
+            if digest != release.digest:
+                release._source_digest = digest
+        return catalog
     except RuntimeFault:
         raise
     except Exception as exc:

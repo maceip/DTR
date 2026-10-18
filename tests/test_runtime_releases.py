@@ -24,23 +24,37 @@ from phaseone.runtime.catalog import (
     signed_catalog,
 )
 from phaseone.runtime.errors import RuntimeFault
-from phaseone.runtime.package import canonical
+from phaseone.runtime.package import canonical, canonical_source, read_json
 from phaseone.runtime.releases import _json_equal, allowed_url
 
 ROOT = Path(__file__).resolve().parents[1]
-CASES = json.loads((ROOT / "sdk/contracts/resolver-cases.json").read_text())["cases"]
+CASES_PATH = ROOT / "sdk/contracts/resolver-cases.json"
+CASES = json.loads(CASES_PATH.read_text())["cases"]
+# Android reads the same file keeping each number's spelling; so does this decode.
+SPELLED = {case["name"]: case for case in read_json(CASES_PATH.read_bytes(), keep_number_text=True)["cases"]}
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c["name"])
 def test_shared_android_desktop_resolver_vectors(case):
     assert qualification_fingerprint(case["device"]) == case["expected"]["device_fingerprint"]
-    catalog = Catalog.model_validate(case["catalog"])
+    catalog = decode_catalog(canonical_source(SPELLED[case["name"]]["catalog"]), allow_unsigned=True)
     assert {r.id: r.digest for r in catalog.releases} == case["expected"]["release_digests"]
     result = resolve(catalog, case["capability"],
                      case["device"], ReleasePolicy.model_validate(case["policy"]), active=case["active"])
     assert result["status"] == case["expected"]["status"]
     assert (result["selection"]["variant"] if result["selection"] else None) == case["expected"]["variant"]
     assert result["app_update_available"] == case["expected"]["app_update_available"]
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c["name"])
+def test_publisher_and_device_agree_on_release_identity(case):
+    # The publisher records digests from its in-memory releases; devices hash the signed bytes.
+    key = Ed25519PrivateKey.generate()
+    public = key.public_key().public_bytes_raw()
+    published = Catalog.model_validate(case["catalog"])
+    received = decode_catalog(signed_catalog(published, key.private_bytes_raw()),
+                              trusted_keys={hashlib.sha256(public).hexdigest(): public})
+    assert [r.digest for r in received.releases] == [r.digest for r in published.releases]
 
 
 def test_catalog_signature_requires_an_application_trust_root():
