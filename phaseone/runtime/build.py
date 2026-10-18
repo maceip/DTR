@@ -1,5 +1,7 @@
 """Explicit developer builds and artifact imports; never invoked by model output."""
 
+import importlib.metadata
+import re
 import shutil
 import subprocess
 import sys
@@ -185,3 +187,75 @@ def import_model(source: Path, destination: Path, *, backend, name="my-agent", v
     definition.pop("variants")
     save_variant(destination, document, model, definition, variant.model_dump(mode="json", exclude_none=True), artifacts)
     return load_package(destination).describe()
+
+
+def save_chat_variant(destination, document, model, variant, artifacts) -> dict:
+    definition = Model(task="chat", variants=[variant]).model_dump(mode="json", exclude_none=True)
+    definition.pop("variants")
+    save_variant(destination, document, model, definition, variant.model_dump(mode="json", exclude_none=True), artifacts)
+    return load_package(destination).describe()
+
+
+def import_mlx(source: Path, destination: Path, *, name="my-agent", version="1.0.0", model="assistant",
+               variant_id=None, chat=None, target=None) -> dict:
+    """Package an MLX model directory (e.g. an mlx-community Hugging Face download)."""
+    from .catalog import NATIVE_SUFFIXES
+
+    source, destination = source.resolve(), destination.resolve()
+    if not (source / "config.json").is_file() or not any(source.glob("*.safetensors")):
+        raise RuntimeFault("source_not_found", f"{source} is not an MLX model directory (config.json and *.safetensors)")
+    destination.mkdir(parents=True, exist_ok=True)
+    document = manifest_for(destination, name, version)
+    target = {"accelerator": "gpu", "systems": ["darwin"], "architectures": ["arm64"], **(target or {})}
+    if target["accelerator"] == "gpu":
+        try:
+            metal = importlib.metadata.version("mlx-metal")
+        except importlib.metadata.PackageNotFoundError:
+            metal = "0.32"
+        target.setdefault("components", {"mlx.metal": ">=" + ".".join(metal.split(".")[:2])})
+    variant_id = variant_id or f"mlx-{target['accelerator']}"
+    chat = dict(chat or {})
+    if "context_length" not in chat:
+        config = read_json((source / "config.json").read_bytes())
+        context = config.get("max_position_embeddings") or config.get("text_config", {}).get("max_position_embeddings")
+        if not isinstance(context, int):
+            raise RuntimeFault("context_required", "config.json has no max_position_embeddings; pass --context")
+        chat["context_length"] = context
+    folder = destination / f"{model}-{variant_id}"
+    folder.mkdir(exist_ok=True)
+    artifacts, ids = {}, {}
+    for path in sorted(source.iterdir()):
+        # Model code is never packaged: mlx-lm builds the architecture from config.json.
+        if not path.is_file() or path.name.startswith(".") or path.name.lower().endswith(NATIVE_SUFFIXES):
+            continue
+        key = f"{model}.{variant_id}." + re.sub(r"[^A-Za-z0-9_.-]", "-", path.name)
+        shutil.copyfile(path, folder / path.name)
+        artifacts[key] = record(folder / path.name, destination)
+        ids[path.name] = key
+    variant = Variant(id=variant_id, backend="mlx", engine="llm", artifact=ids["config.json"],
+                      supporting_artifacts=sorted(key for file, key in ids.items() if file != "config.json"),
+                      target=target, chat=chat)
+    return save_chat_variant(destination, document, model, variant, artifacts)
+
+
+def import_server_binding(source: Path, destination: Path, *, name="my-agent", version="1.0.0", model="assistant",
+                          variant_id=None, chat=None, target=None) -> dict:
+    """Package a binding to a model served on this machine (Ollama, LM Studio, llama-server, oMLX)."""
+    from .backends.server import read_binding
+
+    source, destination = source.resolve(), destination.resolve()
+    if not source.is_file():
+        raise RuntimeFault("source_not_found", f"No server binding at {source}")
+    read_binding(source)
+    if not chat or "context_length" not in chat:
+        raise RuntimeFault("context_required", "Local server imports require --context with the served context limit")
+    destination.mkdir(parents=True, exist_ok=True)
+    document = manifest_for(destination, name, version)
+    variant_id = variant_id or "local-server"
+    path = destination / f"{model}-{variant_id}-binding.json"
+    if source != path:
+        shutil.copyfile(source, path)
+    key = f"{model}.{variant_id}.binding"
+    variant = Variant(id=variant_id, backend="local_server", engine="llm", artifact=key,
+                      target=target or {}, chat=chat)
+    return save_chat_variant(destination, document, model, variant, {key: record(path, destination)})

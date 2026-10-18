@@ -18,7 +18,7 @@ from pydantic import Field, PrivateAttr, field_validator, model_validator
 from .device import BACKEND_DISTRIBUTIONS, canonical_arch, canonical_soc
 from .errors import RuntimeFault
 from .package import canonical, canonical_source, read_json
-from .schema import Contract, Manifest, Name, Variant, relative_path
+from .schema import BackendName, Contract, Manifest, Name, Variant, relative_path
 
 CATALOG_LIMIT = 8 * 1024**2
 NATIVE_SUFFIXES = (".so", ".dll", ".dylib", ".dex", ".jar", ".aar", ".apk", ".py", ".js", ".exe", ".wasm")
@@ -199,7 +199,7 @@ class ReleasePolicy(Contract):
     contract: Name
     allowed_lineages: list[str] = Field(min_length=1)
     accelerators: list[Literal["cpu", "gpu", "npu"]] = Field(default_factory=lambda: ["cpu"], min_length=1)
-    backend: Literal["executorch", "litert"] | None = None
+    backend: BackendName | None = None
     allow_fallback: bool = False
 
 
@@ -225,8 +225,8 @@ def rejection_reasons(variant: Variant, device: dict) -> list[dict]:
     if target.minimum_security_patch and (device.get("security_patch") or "") < target.minimum_security_patch:
         reject("security_patch", "Security patch is too old")
     distribution = BACKEND_DISTRIBUTIONS[(variant.backend, variant.engine)]
-    installed = device.get("runtimes", {}).get(distribution)
-    if not installed or (target.runtime_version and installed not in SpecifierSet(target.runtime_version)):
+    installed = device.get("runtimes", {}).get(distribution) if distribution else None
+    if distribution and (not installed or (target.runtime_version and installed not in SpecifierSet(target.runtime_version))):
         reject("engine", f"Requires {distribution}{target.runtime_version or ''}; installed {installed}", True)
     for name, requirement in target.components.items():
         installed = device.get("components", {}).get(name)

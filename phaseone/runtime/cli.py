@@ -11,10 +11,13 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
+from typing import get_args
 
 from .errors import RuntimeFault
 from .package import create_key, install, load_package, pack, read_json, sign_package
-from .schema import Manifest
+from .schema import BackendName, Manifest
+
+BACKENDS = get_args(BackendName)
 
 
 def dump(value):
@@ -38,7 +41,7 @@ def token_file(path: Path, *, create=False):
 
 
 def parser():
-    root = argparse.ArgumentParser(description="PHASEONE Runtime — one application across ExecuTorch and LiteRT")
+    root = argparse.ArgumentParser(description="PHASEONE Runtime — one application across ExecuTorch, LiteRT, MLX and local model servers")
     root.add_argument("--version", action="version", version="PHASEONE Runtime 0.3.0")
     commands = root.add_subparsers(dest="command", required=True)
     parsers = {}
@@ -61,7 +64,7 @@ def parser():
             item.add_argument("catalog")
             item.add_argument("--contract", required=True)
             item.add_argument("--lineage", action="append", required=True)
-            item.add_argument("--backend", choices=["executorch", "litert"])
+            item.add_argument("--backend", choices=BACKENDS)
             item.add_argument("--accelerator", choices=["cpu", "gpu", "npu"], action="append")
             item.add_argument("--allow-fallback", action="store_true", help="Try another allowed candidate if qualification fails")
     for name in ("inspect", "verify", "install"):
@@ -84,13 +87,15 @@ def parser():
     build.add_argument("--backend", choices=["executorch", "litert"], action="append")
     build.add_argument("--executorch-python", type=Path)
     build.add_argument("--litert-python", type=Path)
-    importer = command("import", "Package an existing .pte, .tflite or .litertlm artifact")
+    importer = command("import", "Package an existing .pte, .tflite or .litertlm artifact, an MLX model "
+                                 "directory, or a local model server binding (JSON: base_url, model)")
     importer.add_argument("source", type=Path)
     importer.add_argument("output", type=Path)
-    importer.add_argument("--backend", choices=["executorch", "litert"], required=True)
+    importer.add_argument("--backend", choices=BACKENDS, required=True)
     importer.add_argument("--variant")
     importer.add_argument("--engine", choices=["program", "compiled", "interpreter", "llm"])
-    importer.add_argument("--accelerator", choices=["cpu", "gpu", "npu"], default="cpu")
+    importer.add_argument("--accelerator", choices=["cpu", "gpu", "npu"],
+                          help="Default: gpu for mlx, cpu otherwise")
     importer.add_argument("--delegate")
     importer.add_argument("--soc")
     importer.add_argument("--runtime-version")
@@ -106,7 +111,7 @@ def parser():
         item.add_argument("--package-version", default="1.0.0")
         item.add_argument("--model", default="model")
     def selection(item):
-        item.add_argument("--backend", choices=["executorch", "litert"])
+        item.add_argument("--backend", choices=BACKENDS)
         item.add_argument("--variant")
         item.add_argument("--accelerator", choices=["cpu", "gpu", "npu"])
         item.add_argument("--allow-fallback", action="store_true")
@@ -246,14 +251,23 @@ def run(args):
             if chat is None:
                 raise RuntimeFault("context_required", "A prompt profile requires --context")
             chat["prompt_format"] = args.prompt_format
+        target = {key: value for key, value in {
+            "accelerator": args.accelerator, "delegate": args.delegate, "soc": args.soc,
+            "runtime_version": args.runtime_version, "systems": args.system, "architectures": args.architecture,
+        }.items() if value not in (None, [])}
+        common = {"name": args.name, "version": args.package_version, "model": args.model, "variant_id": args.variant,
+                  "target": target}
+        if args.backend in ("mlx", "local_server"):
+            from .build import import_mlx, import_server_binding
+
+            chat = chat or ({"tool_protocol": args.tool_protocol} if args.backend == "mlx" else None)
+            importer = import_mlx if args.backend == "mlx" else import_server_binding
+            return dump(importer(args.source, args.output, chat=chat, **common))
         if args.engine == "llm" and chat is None:
             raise RuntimeFault("context_required", "LLM imports require --context with the compiled context limit")
-        return dump(import_model(args.source, args.output, backend=args.backend, name=args.name, version=args.package_version,
-                                 model=args.model, variant_id=args.variant, engine=args.engine, chat=chat,
-                                 target={"accelerator": args.accelerator, "delegate": args.delegate, "soc": args.soc,
-                                         "runtime_version": args.runtime_version, "systems": args.system, "architectures": args.architecture},
+        return dump(import_model(args.source, args.output, backend=args.backend, engine=args.engine, chat=chat,
                                  contract=args.contract, tokenizer=args.tokenizer, tokenizer_config=args.tokenizer_config,
-                                 template=args.template, data=args.data))
+                                 template=args.template, data=args.data, **common))
     if args.command == "token":
         print(token_file(args.token_file or args.state_dir / "host.token"))
         return

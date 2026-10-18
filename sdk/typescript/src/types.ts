@@ -1,4 +1,4 @@
-export type Backend = 'executorch' | 'litert';
+export type Backend = 'executorch' | 'litert' | 'mlx' | 'local_server';
 export type DType = 'float16' | 'float32' | 'float64' | 'int8' | 'uint8' | 'int16' | 'uint16' | 'int32' | 'uint32' | 'int64' | 'uint64' | 'bool';
 export interface TensorValue { dtype: DType; shape: number[]; data?: (number | boolean)[]; base64?: string; }
 export interface Quantization { scales: number[]; zero_points: number[]; axis: number; }

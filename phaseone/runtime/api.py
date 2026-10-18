@@ -19,12 +19,12 @@ from pydantic import Field
 from .errors import RuntimeFault
 from .host import Runtime
 from .package import canonical
-from .schema import ContentPart, Contract, Generation, Message
+from .schema import BackendName, ContentPart, Contract, Generation, Message
 from .training import FineTuneRequest
 
 
 class Selection(Contract):
-    backend: Literal["executorch", "litert"] | None = None
+    backend: BackendName | None = None
     variant: str | None = None
     accelerator: Literal["cpu", "gpu", "npu"] | None = None
     allow_fallback: bool = False
