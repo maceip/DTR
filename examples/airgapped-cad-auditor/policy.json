@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "subject": "engineer:cad",
+      "resource": "workspace:cad",
+      "action": "read",
+      "effect": "allow"
+    },
+    {
+      "subject": "engineer:cad",
+      "resource": "workspace:cad",
+      "action": "write",
+      "effect": "allow"
+    },
+    {
+      "subject": "engineer:cad",
+      "resource": "system:workstation",
+      "action": "read",
+      "effect": "allow"
+    }
+  ]
+}

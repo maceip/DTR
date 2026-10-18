@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "subject": "mobile:user",
+      "resource": "photo:scan",
+      "action": "read",
+      "effect": "allow"
+    },
+    {
+      "subject": "mobile:user",
+      "resource": "notes:personal",
+      "action": "read",
+      "effect": "allow"
+    },
+    {
+      "subject": "mobile:user",
+      "resource": "notes:personal",
+      "action": "write",
+      "effect": "allow"
+    }
+  ]
+}
