@@ -5,6 +5,7 @@ artifact transfer, cache, projection, activation records) is the real code path.
 Native execution of the same lifecycle is covered by check_runtime_releases.py.
 """
 
+import base64
 import copy
 import hashlib
 import json
@@ -15,6 +16,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from phaseone.runtime import Runtime, RuntimeFault
 from phaseone.runtime.catalog import Catalog, ReleasePolicy, signed_catalog
+from phaseone.runtime.package import JsonFloat, canonical, canonical_source
 from phaseone.runtime.releases import ReleaseManager
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +54,17 @@ class Feed:
         catalog = Catalog.model_validate({"name": "lifecycle-tests", "releases": list(releases)})
         path = self.root / f"catalog-{self.count}.json"
         path.write_bytes(signed_catalog(catalog, self.key.private_bytes_raw()))
+        return path.as_uri()
+
+    def publish_source(self, *releases) -> str:
+        """Sign the JSON exactly as given, like a publisher that isn't this Python SDK."""
+        self.count += 1
+        payload = canonical_source({"name": "lifecycle-tests", "releases": list(releases)})
+        path = self.root / f"catalog-{self.count}.json"
+        path.write_bytes(canonical({
+            "format": "phaseone.catalog.signed.v1", "key_id": hashlib.sha256(self.public).hexdigest(),
+            "payload": base64.b64encode(payload).decode(),
+            "signature": base64.b64encode(self.key.sign(payload)).decode()}))
         return path.as_uri()
 
     def artifact(self, release, name) -> Path:
@@ -223,3 +236,17 @@ def test_open_requalifies_after_a_device_runtime_change(runtime, feed, qualifica
     with pytest.raises(RuntimeFault) as error:
         runtime.open("vision")
     assert error.value.code == "qualification_failed"
+
+
+def test_hand_published_catalog_keeps_the_android_release_identity(runtime, feed, qualification):
+    v1 = feed.release("vision-1", 1)
+    del v1["minimum_runtime"]  # An omitted default and a non-Python number spelling.
+    v1["checks"][0]["absolute_tolerance"] = JsonFloat("3e-3")
+    android_digest = hashlib.sha256(canonical_source(v1)).hexdigest()
+    url = feed.publish_source(v1)
+
+    result = runtime.releases.update(url, "vision", POLICY)
+    assert result["activation"]["digest"] == android_digest
+    assert (runtime.releases.root / "installed" / android_digest).is_dir()
+    assert runtime.open("vision").package.manifest.metadata["source_release_digest"] == android_digest
+    assert runtime.releases.update(url, "vision", POLICY)["status"] == "up_to_date"

@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import json
+import math
 import os
 import shutil
 import stat
@@ -32,7 +33,27 @@ def digest_file(path: Path) -> str:
     return hasher.hexdigest()
 
 
-def read_json(data: bytes):
+class JsonFloat(float):
+    """A JSON number that keeps its source spelling, e.g. `3e-3` or `2.50`."""
+
+    def __new__(cls, text):
+        value = super().__new__(cls, text)
+        if not math.isfinite(value):
+            raise ValueError(f"Non-finite JSON number: {text}")
+        value.text = text
+        return value
+
+
+class JsonInt(int):
+    """A JSON integer that keeps its source spelling, e.g. `-0`."""
+
+    def __new__(cls, text):
+        value = super().__new__(cls, text)
+        value.text = text
+        return value
+
+
+def read_json(data: bytes, *, keep_number_text: bool = False):
     def unique(pairs):
         result = {}
         for key, value in pairs:
@@ -41,8 +62,34 @@ def read_json(data: bytes):
             result[key] = value
         return result
 
+    numbers = {"parse_float": JsonFloat, "parse_int": JsonInt} if keep_number_text else {}
     return json.loads(data, object_pairs_hook=unique,
-                      parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
+                      parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)),
+                      **numbers)
+
+
+def canonical_source(value) -> bytes:
+    """Release-identity JSON, byte-identical to the Android SDK's `canonical()`.
+
+    Numbers parsed with `keep_number_text` keep their source spelling. Keys sort
+    by UTF-16 code unit and U+2028/U+2029 are escaped, matching Kotlin string
+    ordering and Gson output.
+    """
+    def encode(item) -> str:
+        if isinstance(item, (JsonFloat, JsonInt)):
+            return item.text
+        if item is None or isinstance(item, (bool, int, float)):
+            return json.dumps(item, allow_nan=False)
+        if isinstance(item, str):
+            return json.dumps(item, ensure_ascii=False).replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+        if isinstance(item, dict):
+            keys = sorted(item, key=lambda key: key.encode("utf-16-be", "surrogatepass"))
+            return "{" + ",".join(encode(key) + ":" + encode(item[key]) for key in keys) + "}"
+        if isinstance(item, (list, tuple)):
+            return "[" + ",".join(encode(entry) for entry in item) + "]"
+        raise TypeError(f"Not a JSON value: {type(item).__name__}")
+
+    return encode(value).encode("utf-8")
 
 
 def atomic_json(path: Path, value, *, private: bool = False):

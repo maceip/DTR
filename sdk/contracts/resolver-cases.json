@@ -6561,6 +6561,303 @@
           "vision-1": "74e1c2ed45908996acf7260045323ffa636ddd3aa560275c8dae33b57dbc38b5"
         }
       }
+    },
+    {
+      "name": "published-number-spelling-and-defaults",
+      "catalog": {
+        "schema_version": 1,
+        "name": "phaseone-vision",
+        "releases": [
+          {
+            "id": "vision-1",
+            "sequence": 1,
+            "capability": "vision",
+            "contract": "imagenet1k.rgb224.v1",
+            "lineage": "torchvision.mobilenet-v3-small.imagenet1k-v1",
+            "manifest": {
+              "schema_version": 1,
+              "name": "portable-vision",
+              "version": "1.0.0",
+              "description": "",
+              "artifacts": {
+                "qualification.input": {
+                  "path": "qualification-input.f32",
+                  "sha256": "53eb6c7a069efec4a9e7edf4e0fe30275e214d73fccb4c59d23025be696b181b",
+                  "size": 602112,
+                  "media_type": "application/octet-stream"
+                },
+                "qualification.output": {
+                  "path": "qualification-output.f32",
+                  "sha256": "cefe22480107fff9ff055c50abd2d93ca61b8308816fc0d10bc94cdeea0fd2fe",
+                  "size": 4000,
+                  "media_type": "application/octet-stream"
+                },
+                "vision.executorch": {
+                  "path": "vision-executorch.pte",
+                  "sha256": "8ff10907a0dc09d661449018e769ce35349eca63cb110edc38ee715f6c7ebb36",
+                  "size": 10205344,
+                  "media_type": "application/octet-stream"
+                },
+                "vision.labels": {
+                  "path": "vision-labels.json",
+                  "sha256": "459caba65c2409b89a54929f121556165e2602c70d865a818ddc13e4c611c44c",
+                  "size": 12490,
+                  "media_type": "application/octet-stream"
+                },
+                "vision.litert": {
+                  "path": "vision-litert.tflite",
+                  "sha256": "2693600c956589212a1da8a3481e534aa283777b3d2eb02a6e18a8a6fb324f1f",
+                  "size": 10283384,
+                  "media_type": "application/octet-stream"
+                }
+              },
+              "models": {
+                "vision": {
+                  "task": "image.classification",
+                  "variants": [
+                    {
+                      "id": "executorch-cpu",
+                      "backend": "executorch",
+                      "engine": "program",
+                      "artifact": "vision.executorch",
+                      "supporting_artifacts": [],
+                      "target": {
+                        "systems": [],
+                        "architectures": [
+                          "arm64",
+                          "x86_64"
+                        ],
+                        "accelerator": "cpu",
+                        "delegate": "XnnpackBackend",
+                        "runtime_version": "==1.5.1",
+                        "minimum_memory_mb": 0,
+                        "minimum_android_api": 0,
+                        "components": {},
+                        "firmware": []
+                      },
+                      "signatures": {
+                        "default": {
+                          "method": "forward",
+                          "inputs": [
+                            {
+                              "name": "image",
+                              "dtype": "float32",
+                              "shape": [
+                                1,
+                                3,
+                                224,
+                                224
+                              ]
+                            }
+                          ],
+                          "outputs": [
+                            {
+                              "name": "logits",
+                              "dtype": "float32",
+                              "shape": [
+                                1,
+                                1000
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "priority": 20
+                    },
+                    {
+                      "id": "litert-cpu",
+                      "backend": "litert",
+                      "engine": "compiled",
+                      "artifact": "vision.litert",
+                      "supporting_artifacts": [],
+                      "target": {
+                        "systems": [],
+                        "architectures": [
+                          "arm64",
+                          "x86_64"
+                        ],
+                        "accelerator": "cpu",
+                        "runtime_version": ">=2.2,<3",
+                        "minimum_memory_mb": 0,
+                        "minimum_android_api": 0,
+                        "components": {},
+                        "firmware": []
+                      },
+                      "signatures": {
+                        "default": {
+                          "method": "default",
+                          "inputs": [
+                            {
+                              "name": "image",
+                              "dtype": "float32",
+                              "shape": [
+                                1,
+                                3,
+                                224,
+                                224
+                              ],
+                              "native_name": "args_0"
+                            }
+                          ],
+                          "outputs": [
+                            {
+                              "name": "logits",
+                              "dtype": "float32",
+                              "shape": [
+                                1,
+                                1000
+                              ],
+                              "native_name": "output_0"
+                            }
+                          ]
+                        }
+                      },
+                      "priority": 10
+                    }
+                  ],
+                  "image": {
+                    "input_name": "image",
+                    "height": 224,
+                    "width": 224,
+                    "layout": "nchw",
+                    "resize_shorter": 256,
+                    "scale": 0.00392156862745098,
+                    "mean": [
+                      0.485,
+                      0.456,
+                      0.406
+                    ],
+                    "std": [
+                      0.229,
+                      0.224,
+                      0.225
+                    ]
+                  },
+                  "labels": "vision.labels",
+                  "output_name": "logits"
+                }
+              },
+              "tools": [],
+              "permissions": [],
+              "metadata": {
+                "builds": {
+                  "vision.executorch": {
+                    "exporter": "1.5.1",
+                    "factory": "build",
+                    "sample_validation": [
+                      {
+                        "max_absolute_error": 1.0251998901367188e-05,
+                        "output": 0,
+                        "signature": "default"
+                      }
+                    ],
+                    "source_file": "model.py",
+                    "source_sha256": "8e563f9a093eed4e562ab6eee1fc5230c51126b8a58cd15d8d9f9b44428d05ac",
+                    "torch": "2.14.0"
+                  },
+                  "vision.litert": {
+                    "exporter": "0.9.4",
+                    "factory": "build",
+                    "sample_validation": [
+                      {
+                        "max_absolute_error": 2.09808349609375e-05,
+                        "output": 0,
+                        "signature": "default"
+                      }
+                    ],
+                    "source_file": "model.py",
+                    "source_sha256": "8e563f9a093eed4e562ab6eee1fc5230c51126b8a58cd15d8d9f9b44428d05ac",
+                    "torch": "2.13.0"
+                  }
+                },
+                "model_source": "torchvision/MobileNet_V3_Small_Weights.IMAGENET1K_V1",
+                "purpose": "ImageNet whole-image classification; not object detection",
+                "calibration": 1E-7,
+                "scale": 2.50
+              }
+            },
+            "model": "vision",
+            "base": "vision/",
+            "checks": [
+              {
+                "kind": "tensor",
+                "name": "imagenet-reference",
+                "signature": "default",
+                "inputs": {
+                  "image": {
+                    "artifact": "qualification.input",
+                    "dtype": "float32",
+                    "shape": [
+                      1,
+                      3,
+                      224,
+                      224
+                    ]
+                  }
+                },
+                "outputs": {
+                  "logits": {
+                    "artifact": "qualification.output",
+                    "dtype": "float32",
+                    "shape": [
+                      1,
+                      1000
+                    ]
+                  }
+                },
+                "absolute_tolerance": 3e-3
+              }
+            ]
+          }
+        ]
+      },
+      "device": {
+        "system": "android",
+        "architecture": "arm64",
+        "soc": "Tensor G6",
+        "android_api": 37,
+        "memory_mb": 16384,
+        "firmware": "test-firmware",
+        "security_patch": "2026-10-05",
+        "manufacturer": "Google",
+        "model": "unit-fixture",
+        "runtimes": {
+          "executorch": "1.5.1",
+          "ai-edge-litert": "2.3.0",
+          "litert-lm-api": "0.18.0"
+        },
+        "components": {
+          "executorch.xnnpack": "1.5.1"
+        },
+        "engines": [
+          "executorch/program",
+          "litert/compiled",
+          "litert/llm"
+        ],
+        "phaseone_version": "0.3.0",
+        "location": "unit-fixture",
+        "runtime_build": "contract-fixture-sdk-v1"
+      },
+      "policy": {
+        "contract": "imagenet1k.rgb224.v1",
+        "allowed_lineages": [
+          "torchvision.mobilenet-v3-small.imagenet1k-v1"
+        ],
+        "accelerators": [
+          "cpu"
+        ]
+      },
+      "capability": "vision",
+      "active": null,
+      "expected": {
+        "status": "model_update_available",
+        "variant": "executorch-cpu",
+        "app_update_available": false,
+        "device_fingerprint": "fed973cb54ed65d7379f0d974a486c0dea63620ce329c6dabbdb6587e466d8f7",
+        "release_digests": {
+          "vision-1": "d0fb3d1f299f96335caff807be5d07703f005ec670c2ab813342ea47510f462e"
+        }
+      }
     }
   ]
 }
