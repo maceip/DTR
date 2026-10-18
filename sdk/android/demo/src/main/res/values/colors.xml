@@ -1,0 +1,7 @@
+<resources>
+    <color name="phaseone_ink">#161817</color>
+    <color name="phaseone_paper">#F6F7F1</color>
+    <color name="phaseone_card">#FFFFFF</color>
+    <color name="phaseone_muted">#626962</color>
+    <color name="phaseone_on_accent">#161817</color>
+</resources>

@@ -1,0 +1,33 @@
+# Local environments, runtime state, credentials and generated assets
+.venv/
+.work/
+.state/
+.phaseone/
+.dtr/
+.env
+.env.*
+*.key
+*.pem
+*.token
+*.sqlite3*
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.DS_Store
+node_modules/
+dist/
+build/
+.gradle/
+.kotlin/
+local.properties
+phaseone/runtime/static/sdk/
+# Downloaded models belong in the release data channel.
+*.pte
+*.ptd
+*.tflite
+*.litertlm
+*.safetensors
+*.phaseone
+*.log

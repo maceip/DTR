@@ -1,0 +1,8 @@
+<resources>
+    <style name="PhaseoneDemo" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowBackground">@color/phaseone_paper</item>
+    </style>
+</resources>

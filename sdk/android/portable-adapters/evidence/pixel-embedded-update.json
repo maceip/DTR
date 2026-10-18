@@ -1,0 +1,65 @@
+{
+  "scope": "Small native tensor graph; prototype adapter delivery; no NPU or Play acceptance claim",
+  "device": "Pixel 11 Pro XL",
+  "android_api": 37,
+  "apk_sha256": "4e1b980a4e876ccf3fa57dc56ab41ebc1082b2b9cfd6a645e2bd6be85f5a6425",
+  "portable_host_source_sha256": "8d89b14b46d0dd58797f09004c8c46ad4815b855a44dbd2612ccfd399705942b",
+  "unit_tests_passed": 11,
+  "one_apk_during_update_sequence": true,
+  "same_process_during_updates": true,
+  "same_app_version_and_install_time": true,
+  "native_engines_bundled_before_updates": true,
+  "downloaded_native_libraries": false,
+  "webview_used": false,
+  "companion_package_used": false,
+  "updates": [
+    {
+      "release": "v1",
+      "module_bytes": 72,
+      "adapter_sha256": "cb9145041d71945d73d78416406c9250b9de815e5d58b12e6f56dd068a05893c",
+      "native_backend": "litert-2.3.0-cpu",
+      "output": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    {
+      "release": "v2",
+      "module_bytes": 108,
+      "adapter_sha256": "93fb4a51e85118b5dd6cf8b2985a236c98e5f1af9d22b499c539e5d1fd454fb8",
+      "native_backend": "executorch-1.5.1-cpu",
+      "output": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    {
+      "release": "gpu",
+      "module_bytes": 72,
+      "adapter_sha256": "0453fd34bb20158443ac642224e173f973ae4c136bc3160aa586443451f6c0d3",
+      "native_backend": "litert-2.3.0-gpu-requested",
+      "output": [
+        5,
+        5,
+        5,
+        5
+      ]
+    }
+  ],
+  "gpu_evidence": "LiteRT logged 1/1 sum nodes delegated to LITERT_CL and initialized its OpenCL graph; output matched.",
+  "hardware_profiling_performed": false,
+  "npu_tested": false,
+  "retained_original_adapter_passed": true,
+  "rejected_updates_preserving_working_release": [
+    "digest_mismatch",
+    "invalid_signature",
+    "unsupported_host_abi",
+    "instruction_limit"
+  ],
+  "cached_execution_after_process_restart_with_server_stopped": true,
+  "automatic_release_manager_integration": false
+}

@@ -1,0 +1,1233 @@
+{
+  "$defs": {
+    "AgentDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Model",
+          "type": "string"
+        },
+        "instruction": {
+          "maxLength": 65536,
+          "title": "Instruction",
+          "type": "string"
+        },
+        "tools": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "max_steps": {
+          "default": 6,
+          "maximum": 32,
+          "minimum": 1,
+          "title": "Max Steps",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "model",
+        "instruction"
+      ],
+      "title": "AgentDefinition",
+      "type": "object"
+    },
+    "Artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size": {
+          "maximum": 274877906944,
+          "minimum": 0,
+          "title": "Size",
+          "type": "integer"
+        },
+        "media_type": {
+          "default": "application/octet-stream",
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "ChatCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "chat",
+          "default": "chat",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "messages": {
+          "items": {
+            "$ref": "#/$defs/ChatCheckMessage"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Messages",
+          "type": "array"
+        },
+        "max_output_tokens": {
+          "default": 64,
+          "maximum": 512,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "contains": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Contains",
+          "type": "array"
+        },
+        "json_fields": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "default": {},
+          "title": "Json Fields",
+          "type": "object"
+        },
+        "json_choices": {
+          "additionalProperties": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "default": {},
+          "title": "Json Choices",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "messages"
+      ],
+      "title": "ChatCheck",
+      "type": "object"
+    },
+    "ChatCheckMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "enum": [
+            "system",
+            "user",
+            "assistant"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 65536,
+          "title": "Content",
+          "type": "string"
+        },
+        "images": {
+          "items": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Images",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ],
+      "title": "ChatCheckMessage",
+      "type": "object"
+    },
+    "ChatConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "context_length": {
+          "maximum": 2000000,
+          "minimum": 32,
+          "title": "Context Length",
+          "type": "integer"
+        },
+        "tokenizer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tokenizer"
+        },
+        "template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template"
+        },
+        "tokenizer_config": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tokenizer Config"
+        },
+        "modalities": {
+          "default": [
+            "text"
+          ],
+          "items": {
+            "enum": [
+              "text",
+              "image",
+              "audio"
+            ],
+            "type": "string"
+          },
+          "title": "Modalities",
+          "type": "array"
+        },
+        "tool_protocol": {
+          "default": "json",
+          "enum": [
+            "json",
+            "native",
+            "none"
+          ],
+          "title": "Tool Protocol",
+          "type": "string"
+        },
+        "num_bos": {
+          "default": 0,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Num Bos",
+          "type": "integer"
+        },
+        "num_eos": {
+          "default": 0,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Num Eos",
+          "type": "integer"
+        },
+        "processor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChatProcessor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "max_images": {
+          "default": 1,
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Max Images",
+          "type": "integer"
+        },
+        "vision_accelerator": {
+          "anyOf": [
+            {
+              "enum": [
+                "cpu",
+                "gpu",
+                "npu"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vision Accelerator"
+        },
+        "audio_accelerator": {
+          "anyOf": [
+            {
+              "enum": [
+                "cpu",
+                "gpu",
+                "npu"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audio Accelerator"
+        },
+        "prompt_format": {
+          "anyOf": [
+            {
+              "enum": [
+                "chatml",
+                "llama3"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Format"
+        }
+      },
+      "required": [
+        "context_length"
+      ],
+      "title": "ChatConfig",
+      "type": "object"
+    },
+    "ChatProcessor": {
+      "additionalProperties": false,
+      "description": "A hash-covered processor profile; packages cannot supply executable code.",
+      "properties": {
+        "config": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Config",
+          "type": "string"
+        },
+        "image_token": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Image Token",
+          "type": "string"
+        },
+        "image_splitting": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image Splitting"
+        },
+        "runner": {
+          "default": "native",
+          "enum": [
+            "native",
+            "program",
+            "gemma4-ple"
+          ],
+          "title": "Runner",
+          "type": "string"
+        },
+        "vision_inputs": {
+          "items": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Vision Inputs",
+          "type": "array"
+        },
+        "image_fit": {
+          "default": "processor",
+          "enum": [
+            "processor",
+            "square_pad"
+          ],
+          "title": "Image Fit",
+          "type": "string"
+        },
+        "image_size": {
+          "default": 512,
+          "maximum": 2048,
+          "minimum": 32,
+          "title": "Image Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "config",
+        "image_token"
+      ],
+      "title": "ChatProcessor",
+      "type": "object"
+    },
+    "ImagePreprocess": {
+      "additionalProperties": false,
+      "properties": {
+        "input_name": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Input Name",
+          "type": "string"
+        },
+        "height": {
+          "maximum": 8192,
+          "minimum": 1,
+          "title": "Height",
+          "type": "integer"
+        },
+        "width": {
+          "maximum": 8192,
+          "minimum": 1,
+          "title": "Width",
+          "type": "integer"
+        },
+        "layout": {
+          "default": "nchw",
+          "enum": [
+            "nchw",
+            "nhwc"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "resize_shorter": {
+          "anyOf": [
+            {
+              "maximum": 16384,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resize Shorter"
+        },
+        "scale": {
+          "default": 0.00392156862745098,
+          "title": "Scale",
+          "type": "number"
+        },
+        "mean": {
+          "default": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "items": {
+            "type": "number"
+          },
+          "title": "Mean",
+          "type": "array"
+        },
+        "std": {
+          "default": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "items": {
+            "type": "number"
+          },
+          "title": "Std",
+          "type": "array"
+        }
+      },
+      "required": [
+        "input_name",
+        "height",
+        "width"
+      ],
+      "title": "ImagePreprocess",
+      "type": "object"
+    },
+    "Manifest": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "name": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 8192,
+          "title": "Description",
+          "type": "string"
+        },
+        "artifacts": {
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9_.-]{0,95}$": {
+              "$ref": "#/$defs/Artifact"
+            }
+          },
+          "title": "Artifacts",
+          "type": "object"
+        },
+        "models": {
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9_.-]{0,95}$": {
+              "$ref": "#/$defs/Model"
+            }
+          },
+          "title": "Models",
+          "type": "object"
+        },
+        "tools": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ToolDefinition"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "permissions": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "array"
+        },
+        "agent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AgentDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Metadata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "artifacts",
+        "models"
+      ],
+      "title": "Manifest",
+      "type": "object"
+    },
+    "Model": {
+      "additionalProperties": false,
+      "properties": {
+        "task": {
+          "enum": [
+            "tensor",
+            "chat",
+            "image.classification",
+            "embedding"
+          ],
+          "title": "Task",
+          "type": "string"
+        },
+        "variants": {
+          "items": {
+            "$ref": "#/$defs/Variant"
+          },
+          "minItems": 1,
+          "title": "Variants",
+          "type": "array"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImagePreprocess"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "labels": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Labels"
+        },
+        "output_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Name"
+        }
+      },
+      "required": [
+        "task",
+        "variants"
+      ],
+      "title": "Model",
+      "type": "object"
+    },
+    "Quantization": {
+      "additionalProperties": false,
+      "properties": {
+        "scales": {
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1,
+          "title": "Scales",
+          "type": "array"
+        },
+        "zero_points": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Zero Points",
+          "type": "array"
+        },
+        "axis": {
+          "default": 0,
+          "title": "Axis",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scales",
+        "zero_points"
+      ],
+      "title": "Quantization",
+      "type": "object"
+    },
+    "Release": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "capability": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Capability",
+          "type": "string"
+        },
+        "contract": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Contract",
+          "type": "string"
+        },
+        "lineage": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Lineage",
+          "type": "string"
+        },
+        "minimum_runtime": {
+          "default": "0.3.0",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "title": "Minimum Runtime",
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/Manifest"
+        },
+        "model": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Model",
+          "type": "string"
+        },
+        "base": {
+          "title": "Base",
+          "type": "string"
+        },
+        "checks": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "chat": "#/$defs/ChatCheck",
+                "tensor": "#/$defs/TensorCheck"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/TensorCheck"
+              },
+              {
+                "$ref": "#/$defs/ChatCheck"
+              }
+            ]
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Checks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "sequence",
+        "capability",
+        "contract",
+        "lineage",
+        "manifest",
+        "model",
+        "base",
+        "checks"
+      ],
+      "title": "Release",
+      "type": "object"
+    },
+    "Signature": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "default": "forward",
+          "title": "Method",
+          "type": "string"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/TensorSpec"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/TensorSpec"
+          },
+          "title": "Outputs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "inputs",
+        "outputs"
+      ],
+      "title": "Signature",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "properties": {
+        "systems": {
+          "default": [],
+          "items": {
+            "enum": [
+              "darwin",
+              "linux",
+              "windows",
+              "android",
+              "ios",
+              "web"
+            ],
+            "type": "string"
+          },
+          "title": "Systems",
+          "type": "array"
+        },
+        "architectures": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Architectures",
+          "type": "array"
+        },
+        "accelerator": {
+          "default": "cpu",
+          "enum": [
+            "cpu",
+            "gpu",
+            "npu"
+          ],
+          "title": "Accelerator",
+          "type": "string"
+        },
+        "delegate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delegate"
+        },
+        "soc": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Soc"
+        },
+        "runtime_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runtime Version"
+        },
+        "minimum_memory_mb": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Minimum Memory Mb",
+          "type": "integer"
+        },
+        "minimum_android_api": {
+          "default": 0,
+          "maximum": 1000,
+          "minimum": 0,
+          "title": "Minimum Android Api",
+          "type": "integer"
+        },
+        "components": {
+          "default": {},
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9_.-]{0,95}$": {
+              "type": "string"
+            }
+          },
+          "title": "Components",
+          "type": "object"
+        },
+        "firmware": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Firmware",
+          "type": "array"
+        },
+        "minimum_security_patch": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum Security Patch"
+        }
+      },
+      "title": "Target",
+      "type": "object"
+    },
+    "TensorCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "tensor",
+          "default": "tensor",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "signature": {
+          "default": "default",
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Signature",
+          "type": "string"
+        },
+        "inputs": {
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9_.-]{0,95}$": {
+              "$ref": "#/$defs/TensorFixture"
+            }
+          },
+          "title": "Inputs",
+          "type": "object"
+        },
+        "outputs": {
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9_.-]{0,95}$": {
+              "$ref": "#/$defs/TensorFixture"
+            }
+          },
+          "title": "Outputs",
+          "type": "object"
+        },
+        "absolute_tolerance": {
+          "default": 0.001,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Absolute Tolerance",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "inputs",
+        "outputs"
+      ],
+      "title": "TensorCheck",
+      "type": "object"
+    },
+    "TensorFixture": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Artifact",
+          "type": "string"
+        },
+        "dtype": {
+          "const": "float32",
+          "default": "float32",
+          "title": "Dtype",
+          "type": "string"
+        },
+        "shape": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Shape",
+          "type": "array"
+        }
+      },
+      "required": [
+        "artifact",
+        "shape"
+      ],
+      "title": "TensorFixture",
+      "type": "object"
+    },
+    "TensorSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "dtype": {
+          "enum": [
+            "float16",
+            "float32",
+            "float64",
+            "int8",
+            "uint8",
+            "int16",
+            "uint16",
+            "int32",
+            "uint32",
+            "int64",
+            "uint64",
+            "bool"
+          ],
+          "title": "Dtype",
+          "type": "string"
+        },
+        "shape": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 12,
+          "title": "Shape",
+          "type": "array"
+        },
+        "native_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Native Name"
+        },
+        "quantization": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Quantization"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "name",
+        "dtype",
+        "shape"
+      ],
+      "title": "TensorSpec",
+      "type": "object"
+    },
+    "ToolDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 4096,
+          "title": "Description",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "permission": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Permission",
+          "type": "string"
+        },
+        "side_effect": {
+          "default": false,
+          "title": "Side Effect",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "parameters",
+        "permission"
+      ],
+      "title": "ToolDefinition",
+      "type": "object"
+    },
+    "Variant": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "backend": {
+          "enum": [
+            "executorch",
+            "litert"
+          ],
+          "title": "Backend",
+          "type": "string"
+        },
+        "engine": {
+          "enum": [
+            "program",
+            "compiled",
+            "interpreter",
+            "llm"
+          ],
+          "title": "Engine",
+          "type": "string"
+        },
+        "artifact": {
+          "title": "Artifact",
+          "type": "string"
+        },
+        "data_artifact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Artifact"
+        },
+        "supporting_artifacts": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Artifacts",
+          "type": "array"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        },
+        "signatures": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Signature"
+          },
+          "default": {},
+          "title": "Signatures",
+          "type": "object"
+        },
+        "chat": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChatConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "priority": {
+          "default": 0,
+          "title": "Priority",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "backend",
+        "engine",
+        "artifact"
+      ],
+      "title": "Variant",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "name": {
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,95}$",
+      "title": "Name",
+      "type": "string"
+    },
+    "releases": {
+      "items": {
+        "$ref": "#/$defs/Release"
+      },
+      "maxItems": 10000,
+      "minItems": 1,
+      "title": "Releases",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "releases"
+  ],
+  "title": "Catalog",
+  "type": "object"
+}

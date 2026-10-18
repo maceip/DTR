@@ -1,0 +1,218 @@
+{
+  "policy": {
+    "version": 1,
+    "rules": [
+      {
+        "subject": "alice",
+        "resource": "notes:alice",
+        "action": "read",
+        "effect": "allow"
+      },
+      {
+        "subject": "alice",
+        "resource": "notes:alice",
+        "action": "write",
+        "effect": "allow"
+      },
+      {
+        "subject": "alice",
+        "resource": "project:patch",
+        "action": "write",
+        "effect": "allow"
+      },
+      {
+        "subject": "alice",
+        "resource": "project:patch",
+        "action": "execute",
+        "effect": "deny"
+      },
+      {
+        "subject": "alice",
+        "resource": "dataset:consented",
+        "action": "read",
+        "effect": "allow"
+      },
+      {
+        "subject": "alice",
+        "resource": "dataset:consented",
+        "action": "train",
+        "effect": "allow"
+      },
+      {
+        "subject": "alice",
+        "resource": "notes:restricted",
+        "action": "export",
+        "effect": "allow"
+      },
+      {
+        "subject": "alice",
+        "resource": "notes:restricted",
+        "action": "export",
+        "effect": "deny"
+      },
+      {
+        "subject": "alice",
+        "resource": "workspace:PHASEONE[tpu]/My résumé.py",
+        "action": "write",
+        "effect": "allow"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "read own notes",
+      "subject": "alice",
+      "resource": "notes:alice",
+      "action": "read",
+      "allowed": true
+    },
+    {
+      "name": "edit own notes",
+      "subject": "alice",
+      "resource": "notes:alice",
+      "action": "write",
+      "allowed": true
+    },
+    {
+      "name": "other user's data",
+      "subject": "bob",
+      "resource": "notes:alice",
+      "action": "read",
+      "allowed": false
+    },
+    {
+      "name": "other resource",
+      "subject": "alice",
+      "resource": "notes:bob",
+      "action": "read",
+      "allowed": false
+    },
+    {
+      "name": "read does not allow export",
+      "subject": "alice",
+      "resource": "notes:alice",
+      "action": "export",
+      "allowed": false
+    },
+    {
+      "name": "read does not allow training",
+      "subject": "alice",
+      "resource": "notes:alice",
+      "action": "train",
+      "allowed": false
+    },
+    {
+      "name": "create generated code",
+      "subject": "alice",
+      "resource": "project:patch",
+      "action": "write",
+      "allowed": true
+    },
+    {
+      "name": "generated code is not executable authority",
+      "subject": "alice",
+      "resource": "project:patch",
+      "action": "execute",
+      "allowed": false
+    },
+    {
+      "name": "training explicitly consented",
+      "subject": "alice",
+      "resource": "dataset:consented",
+      "action": "train",
+      "allowed": true
+    },
+    {
+      "name": "deny overrides allow",
+      "subject": "alice",
+      "resource": "notes:restricted",
+      "action": "export",
+      "allowed": false
+    },
+    {
+      "name": "exact resource boundary",
+      "subject": "alice",
+      "resource": "notes:alice/private",
+      "action": "read",
+      "allowed": false
+    },
+    {
+      "name": "unknown subject",
+      "subject": "mallory",
+      "resource": "dataset:consented",
+      "action": "train",
+      "allowed": false
+    },
+    {
+      "name": "spaces and Unicode in exact resource IDs",
+      "subject": "alice",
+      "resource": "workspace:PHASEONE[tpu]/My résumé.py",
+      "action": "write",
+      "allowed": true
+    }
+  ],
+  "invalid_documents": [
+    {
+      "version": 2,
+      "rules": []
+    },
+    {
+      "version": true,
+      "rules": []
+    },
+    {
+      "version": 1,
+      "rules": [],
+      "allow_all": true
+    },
+    {
+      "version": 1,
+      "rules": [
+        {
+          "subject": "alice",
+          "resource": "*",
+          "action": "read",
+          "effect": "allow"
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "rules": [
+        {
+          "subject": "alice",
+          "resource": "notes:alice",
+          "action": "admin",
+          "effect": "allow"
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "rules": [
+        {
+          "subject": "alice",
+          "resource": "notes:alice",
+          "action": "read",
+          "effect": "allow",
+          "train": true
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "rules": null
+    },
+    {
+      "version": 1,
+      "rules": [
+        {
+          "subject": "alice",
+          "resource": "notes:alice\n",
+          "action": "read",
+          "effect": "allow"
+        }
+      ]
+    }
+  ]
+}

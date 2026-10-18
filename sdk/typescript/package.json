@@ -1,0 +1,45 @@
+{
+  "name": "@phaseone/runtime",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "PHASEONE application API for browsers and paired native hosts",
+  "files": [
+    "dist",
+    "licenses",
+    "patches/README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.proofs.json",
+    "lint:proofs": "eslint src/permissions.ts src/tool-gateway.ts src/training.ts",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@litert-lm/core": "0.18.1",
+    "@litertjs/core": "2.5.3",
+    "@noble/hashes": "^2.0.1",
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^24.0.0",
+    "@types/semver": "^7.7.0",
+    "@typescript-eslint/parser": "8.71.2",
+    "ajv": "^8.18.0",
+    "esbuild": "^0.25.0",
+    "eslint": "10.13.0",
+    "fake-indexeddb": "^6.2.5",
+    "semver": "^7.7.0",
+    "typescript": "~5.9.0"
+  },
+  "dependencies": {
+    "@gdp-ts/core": "0.1.0",
+    "permix": "4.4.0"
+  }
+}

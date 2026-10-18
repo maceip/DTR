@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dtr.local/contracts/permissions-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "rules"],
+  "properties": {
+    "version": {"const": 1, "type": "integer"},
+    "rules": {
+      "type": "array", "maxItems": 4096,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["subject", "resource", "action", "effect"],
+        "properties": {
+          "subject": {"$ref": "#/$defs/identity"},
+          "resource": {"$ref": "#/$defs/resource"},
+          "action": {"enum": ["read", "write", "execute", "export", "train"]},
+          "effect": {"enum": ["allow", "deny"]}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identity": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,255}$"},
+    "resource": {"type": "string", "minLength": 1, "maxLength": 1024, "not": {"pattern": "[\u0000-\u001f\u007f*?]"}}
+  }
+}
