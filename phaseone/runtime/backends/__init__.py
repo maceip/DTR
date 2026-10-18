@@ -3,6 +3,10 @@
 
 def create(package, variant, cache_dir):
     if variant.engine == "llm":
+        if variant.backend == "executorch" and variant.chat.runner == "qnn":
+            from .qnn import QnnChat
+
+            return QnnChat(package, variant, cache_dir)
         if variant.backend == "executorch" and variant.chat and variant.chat.processor:
             if variant.chat.processor.runner == "gemma4-ple":
                 from .gemma4 import ExecuTorchGemma4

@@ -266,6 +266,21 @@ def pack(root: Path, destination: Path) -> dict:
             "sha256": digest_file(destination), "size": destination.stat().st_size}
 
 
+def _reuse_installation(package, destination, *, trust_store, require_signature):
+    cached = load_package(destination, trust_store=trust_store)
+    if cached.digest != package.digest:
+        raise RuntimeFault("artifact_integrity", "Cached application no longer matches its content address")
+    # A signed distribution can upgrade an unsigned installation, but an
+    # unsigned reinstall must not erase the cached signature.
+    ranks = {"unsigned": 0, "valid_untrusted": 1, "trusted": 2}
+    if ranks[package.signature_status] > ranks[cached.signature_status]:
+        atomic_json(destination / SIGNATURE, read_json((package.root / SIGNATURE).read_bytes()))
+        return load_package(destination, trust_store=trust_store, require_signature=require_signature)
+    if require_signature and cached.signature_status != "trusted":
+        raise RuntimeFault("untrusted_package", "The cached package needs a trusted signature")
+    return cached
+
+
 def install(source: Path, store: Path, *, trust_store: Path | None = None,
             require_signature: bool = False, max_bytes: int = 64 * 1024**3) -> Package:
     """Install an immutable copy; never execute directly from a mutable download."""
@@ -278,6 +293,12 @@ def install(source: Path, store: Path, *, trust_store: Path | None = None,
                                    require_signature=require_signature)
             if sum(a.size for a in package.manifest.artifacts.values()) > max_bytes:
                 raise RuntimeFault("package_too_large", "Application exceeds installation size limit")
+            destination = store / package.digest
+            if destination.exists():
+                # Both source and cache are hash-checked; do not copy gigabytes
+                # into a temporary directory only to discard them at startup.
+                return _reuse_installation(package, destination, trust_store=trust_store,
+                                          require_signature=require_signature)
             names = [MANIFEST, *(a.path for a in package.manifest.artifacts.values())]
             if (package.root / SIGNATURE).is_file():
                 names.append(SIGNATURE)
@@ -317,17 +338,8 @@ def install(source: Path, store: Path, *, trust_store: Path | None = None,
         package = load_package(staging, trust_store=trust_store, require_signature=require_signature)
         destination = store / package.digest
         if destination.exists():
-            cached = load_package(destination, trust_store=trust_store)
-            if cached.digest != package.digest:
-                raise RuntimeFault("artifact_integrity", "Cached application no longer matches its content address")
-            # The detached signature is not part of the content address. A later
-            # signed distribution may upgrade a previously unsigned installation;
-            # reinstalling an unsigned copy must never erase that trust evidence.
-            ranks = {"unsigned": 0, "valid_untrusted": 1, "trusted": 2}
-            if ranks[package.signature_status] > ranks[cached.signature_status]:
-                atomic_json(destination / SIGNATURE, read_json((staging / SIGNATURE).read_bytes()))
-            return load_package(destination, trust_store=trust_store,
-                                require_signature=require_signature)
+            return _reuse_installation(package, destination, trust_store=trust_store,
+                                      require_signature=require_signature)
         # Atomic rename keeps incomplete installs out of the model resolver.
         os.replace(staging, destination)
         return load_package(destination, trust_store=trust_store,

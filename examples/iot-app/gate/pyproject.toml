@@ -1,0 +1,27 @@
+[project]
+name = "phaseone-gate-demo"
+version = "0.1.0"
+description = "An out-of-band camera and command gate built on DTR"
+requires-python = ">=3.12,<3.13"
+dependencies = ["dtr-runtime>=0.3,<0.4", "msgpack>=1,<2"]
+
+[project.optional-dependencies]
+camera = ["opencv-python-headless>=4.11,<6"]
+litert = ["dtr-runtime[litert]>=0.3,<0.4"]
+
+[project.scripts]
+phaseone-gate-demo = "gate_demo.app:main"
+
+[tool.uv.sources]
+dtr-runtime = { path = "../../..", editable = true }
+
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["gate_demo"]
+
+[tool.hatch.build.targets.wheel.force-include]
+static = "gate_demo/static"
+workspace = "gate_demo/workspace"

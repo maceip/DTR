@@ -3,8 +3,8 @@
 DTR's deliverable stays the runtime: an application keeps its model operations,
 tools, and permissions when compatible models or engines change. These are
 optional future implementation tasks, not unfinished work from the README and
-example-folder request. The three reserved application folders under `examples/`
-remain empty until the team chooses what to build.
+example-folder request. The Gate implementation now lives under
+`examples/iot-app/gate`; the other example work is tracked separately.
 
 Runtime and repository fixes found in code review are tracked separately in
 [review follow-ups](review-followups.md).
@@ -84,7 +84,7 @@ The runtime remains embedded in the developer's app; it introduces no customer
 installation, DTR account, or always-running desktop service. Models propose
 operations; the app's gateway decides whether they may execute.
 
-The example app folders are placeholders, not work assigned by this handoff.
+The Gate example under `examples/iot-app/gate` now implements the camera and command demonstration; sibling examples are separate work.
 
 ## device notes
 
@@ -123,9 +123,9 @@ checked on 2026-10-18 with the physical ventuno q, ubuntu 24.04.4, python 3.12.3
 
 the runtime lives at `~/phaseone-runtime` on the board; its loopback server is available over usb at `http://127.0.0.1:8921` on the mac
 
-the camera preview is at `http://127.0.0.1:8767`; the brio 101 delivers jpeg frames, but the inspected frames are black, so the shutter or camera placement still needs checking
+the brio shutter is now open and the gate example owns continuous capture; its live preview replaces the earlier camera service and is at `http://127.0.0.1:8931/?source=camera`
 
-the sponsor source archive remained google drive quota-blocked during this run; matching qcs8275 executorch runners are still needed for the supplied npu models; all inference recorded above used cpu
+the reconnect checks above used cpu; the sponsor archive was downloaded later and its qnn runners are now installed, as described below
 
 installation used the existing arm64 `uv` binary and a board-local copy of `libatomic.so.1` from the existing ubuntu development container; `scripts/run_runtime_board.sh` sets the library path; stalled wi-fi downloads were completed on the mac, checked against `uv.lock`, and transferred over usb
 
@@ -134,3 +134,34 @@ installation used the existing arm64 `uv` binary and a board-local copy of `liba
 local result files are `.work/runtime-board.json` and `.work/runtime-board-chat.json`; camera captures, model files, pairing tokens and runtime state stay outside git
 
 [board deployment and terminal commands](ventuno.md)
+
+## gate demo and npu
+
+the standalone example is `examples/iot-app/gate`; all inference goes through `app.chat`, and actions go through `app.invoke_tool` and the runtime's resource policy
+
+- continuous video comes directly from the brio 101 through opencv / v4l2; the camera reports observed frame count, rate and age, and shares a live mjpeg preview
+- the screen reader is gemma 4 e2b through litert-lm on cpu; the judge is the sponsor's gemma 4 e2b qcs8275 artifact through executorch / qnn on the hexagon npu
+- the qnn adapter consumes the package's tokenizer and chat template, preserves canonical message history, enforces the context budget, checks native generation statistics and records actual execution in dtr receipts
+- native completions are buffered until the cli runner finishes; the runner loads its model for each request, so its loading time is included in the reported inference time
+- the adapter does not grant tool permissions; only the exact bundled test command can execute, with fixed arguments, no shell, a fresh single-use decision and the app's workspace permission
+- warning lights use `set_led_state` and `get_led_state` through `/var/run/arduino-router.sock`; a result is confirmed only after actual mcu readback
+
+the sponsor source archive sha256 is `9f665d0508aa6e3fab087d48d0c610648078e01ad341ad20535e194700c463f0`; native host files are separately inventoried in `native/qnn/runtime.json` on the board and checked before use
+
+qnn 2.46.0 host and v75 dsp libraries came from the already installed `ghcr.io/arduino/app-bricks/llamacpp-npu-runner:0.12.1` image; linux rpc libraries came from this board, and libatomic came from its existing runtime installation
+
+gemma 3 also completed real npu inference, but it incorrectly approved deleting migrations and later returned an invalid judgment object — it is not the selected demo judge; gemma 4 passed the three direct judgment checks
+
+the typed judgment is inspired by the earlier jev proposal; this example uses gemma weights, with no jev model or on-device training, and it does not intercept arbitrary codex commands, send usb keyboard input, estimate physical depth or listen for speech
+
+camera captures, model weights, tokens, native logs and local test receipts stay in ignored state / work directories; the camera was facing the room during the initial live capture check, so that check established capture and a held decision, not optical reading of a laptop terminal
+
+linux process-lifetime validation confirmed that terminating a dtr worker also kills its native child; local runtime hashes and the receipt chain are integrity checks, not hardware attestation
+
+the identical package `7b156fd3b8cf2d93ea8b8f1b0c09f330264645c59fc795d9c49e0b715d79b6c8` passed all three rendered-terminal scenarios on both macos and the ventuno: allow / block / block, with the allowed test process exiting zero and neither blocked command executed
+
+on macos both logical models selected litert cpu; on the board the screen reader selected litert cpu and every judgment recorded qnn htp execution, with the real led read back after each decision — the first board check took 61.4 seconds including worker loading, and the two later checks took 28.7 and 25.8 seconds
+
+the final camera check decoded 20 distinct jpeg frames in 2.644 seconds at 720 × 1280; the real camera image then went through the vision model, which returned no visible command and held execution while confirming the warning led — point the brio at `/screen` for the physical terminal demonstration
+
+local reports are `.work/gate-hybrid-board-results.json`, `.work/gate-mac-results.json`, `.work/gate-final-camera-result.json`, `.work/camera-proof/gate-final-video.json` and `.work/qnn-process-lifetime.json`; the example wheel includes its ui, camera code and test workspace

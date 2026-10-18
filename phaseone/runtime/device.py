@@ -78,6 +78,13 @@ def discover() -> dict:
     components = {}
     if versions.get("executorch"):
         components["executorch.xnnpack"] = versions["executorch"]
+    from .qnn_host import qnn_installation
+
+    qnn = qnn_installation() if system == "linux" and arch == "arm64" else None
+    if qnn:
+        _, profile = qnn
+        components["executorch.qnn_runner"] = profile["executorch_version"]
+        components["qnn.htp"] = profile["qnn_version"]
     return {"system": system, "architecture": arch, "os_version": platform.release(),
             "memory_mb": memory_mb, "soc": soc, "runtimes": versions,
             "components": components, "phaseone_version": "0.3.0",
@@ -96,9 +103,14 @@ def compatibility(variant: Variant, host: dict) -> list[str]:
     if target.soc and canonical_soc(target.soc) != canonical_soc(host.get("soc")):
         reasons.append(f"Requires detected SoC {target.soc}; detected {host.get('soc') or 'unknown'}")
     distribution = BACKEND_DISTRIBUTIONS[(variant.backend, variant.engine)]
-    installed = host["runtimes"].get(distribution)
+    qnn_runner = bool(variant.chat and variant.chat.runner == "qnn")
+    installed = (host.get("components", {}).get("executorch.qnn_runner") if qnn_runner
+                 else host["runtimes"].get(distribution))
+    if qnn_runner and (host["system"] != "linux" or canonical_arch(host["architecture"]) != "arm64"):
+        reasons.append("The installed QNN runner requires Linux ARM64")
     if not installed:
-        reasons.append(f"Install {distribution} for {variant.backend}/{variant.engine}")
+        reasons.append("Install the DTR QNN host runtime" if qnn_runner
+                       else f"Install {distribution} for {variant.backend}/{variant.engine}")
     elif target.runtime_version:
         try:
             if installed not in SpecifierSet(target.runtime_version):

@@ -58,3 +58,52 @@ it then installs the locked executorch and litert dependencies into the board's 
 the paired server binds to board loopback and requires its token for inference; the deploy script saves that token in `.state/runtime-board.token` on the mac
 
 [device checks and npu setup notes](team-handoff.md#ventuno-reconnect)
+
+## gate camera demo
+
+the example is installed at `~/phaseone-runtime/gate-demo`, with the model package at `apps/gate-gemma4-models`
+
+start it from a board terminal
+
+```sh
+cd ~/phaseone-runtime
+bash gate-demo/run_board.sh --package apps/gate-gemma4-models \
+  --state .state/gate --port 8930 --rotate 270
+```
+
+if the demo is already running, reuse it — only one process can own the brio
+
+on the mac
+
+```sh
+adb -s 1050156610 forward tcp:8931 tcp:8930
+```
+
+open http://127.0.0.1:8931/?source=camera for the live video and command gate, or http://127.0.0.1:8931/screen for a terminal the camera can read
+
+the demo captures video directly from the brio using v4l2 and sends a fresh frame through dtr's screen model — its judge uses the sponsor's gemma 4 model on the npu, and its permitted tools run the bundled tests and control the mcu led
+
+## installed qnn runtime
+
+the board's native runtime is in `~/phaseone-runtime/native/qnn`
+
+```text
+bin/         linux arm64 executorch runners
+lib/         executorch backend, qnn host libraries and rpc dependencies
+dsp/         matching hexagon dsp libraries
+runtime.json versions and hashes of the installed files
+models/      downloaded sponsor models
+```
+
+the installed combination is executorch runner 1.5.0 with qnn 2.46.0 and the v75 dsp libraries — it is separate from the executorch 1.5.1 python wheel used for cpu models
+
+after installing matching binaries, register them with dtr
+
+```sh
+.venv/bin/python scripts/register_qnn_runtime.py --root native/qnn \
+  --executorch-version 1.5.0 --qnn-version 2.46.0
+```
+
+`DTR_QNN_ROOT` can point to another installation — model packages select the installed runner and cannot supply executable paths
+
+the downloaded source archive includes the arm64 `libqnn_executorch_backend.so` under `build-x86/backends/qualcomm` despite that directory's name

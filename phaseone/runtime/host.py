@@ -300,6 +300,11 @@ class Application:
                 if event["type"] == "done":
                     execution = {**execution, "inference_ms": event.pop("inference_ms"),
                                  "usage": event.get("usage", {}), "execution_verified": True}
+                    native = event.pop("native_execution", None)
+                    if native is not None:
+                        execution["native"] = native
+                        execution["npu_execution_verified"] = native.get("npu_execution_verified", False)
+                        execution["acceleration_evidence"] = native.get("acceleration_evidence", "unverified")
                     event["execution"] = execution
                     event["receipt"] = self.runtime.state.receipt("chat", execution)
                     self.runtime.observations[(self.package.digest, model, chosen.id)] = execution

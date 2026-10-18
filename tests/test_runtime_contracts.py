@@ -64,6 +64,20 @@ def test_resign_edited_manifest(package_dir, tmp_path):
     assert load_package(package_dir).signature_status == "valid_untrusted"
 
 
+def test_reinstall_verifies_existing_artifacts_without_copying_them_again(package_dir, tmp_path, monkeypatch):
+    store = tmp_path / "store"
+    original = install(package_dir, store)
+    def forbidden_copy(*args, **kwargs):
+        pytest.fail("An existing content-addressed package must not be copied again")
+    monkeypatch.setattr("phaseone.runtime.package.shutil.copyfile", forbidden_copy)
+    assert install(package_dir, store).digest == original.digest
+    cached_artifact = original.artifact("model")
+    cached_artifact.write_bytes(b"x" * cached_artifact.stat().st_size)
+    with pytest.raises(RuntimeFault) as error:
+        install(package_dir, store)
+    assert error.value.code == "artifact_integrity"
+
+
 def test_cached_package_can_gain_trust_without_losing_it_on_reinstall(package_dir, tmp_path):
     store, trust, key = tmp_path / "store", tmp_path / "trust", tmp_path / "key"
     unsigned = tmp_path / "unsigned.phaseone"

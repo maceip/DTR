@@ -126,6 +126,8 @@ class ChatConfig(Contract):
     vision_accelerator: Literal["cpu", "gpu", "npu"] | None = None
     audio_accelerator: Literal["cpu", "gpu", "npu"] | None = None
     prompt_format: Literal["chatml", "llama3"] | None = None
+    runner: Literal["native", "qnn"] = "native"
+    decoder: Literal["gemma3", "gemma4"] | None = None
 
 
 class Variant(Contract):
@@ -152,6 +154,14 @@ class Variant(Contract):
             raise ValueError("A tensor variant requires at least one signature")
         if self.backend == "executorch" and self.chat and not self.chat.tokenizer:
             raise ValueError("ExecuTorch chat requires a packaged tokenizer")
+        if self.chat and self.chat.runner == "qnn":
+            if (self.backend != "executorch" or self.engine != "llm" or self.target.accelerator != "npu"
+                    or self.target.delegate != "QnnBackend" or self.chat.modalities != ["text"]
+                    or not self.chat.decoder or not self.chat.template or self.chat.processor
+                    or self.chat.tool_protocol == "native"):
+                raise ValueError("QNN text runners require ExecuTorch/NPU/QnnBackend, a decoder and template")
+        elif self.chat and self.chat.decoder is not None:
+            raise ValueError("The decoder field belongs to the QNN runner")
         return self
 
     def artifact_ids(self) -> set[str]:
