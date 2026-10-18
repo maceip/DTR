@@ -16,7 +16,7 @@ Android SDKs were not reviewed in depth.
 
 **Problem.** The README opens with Qualcomm NPU targets: Galaxy S25 Ultra / HTP
 v79, Ventuno Q / QCS8275 and Snapdragon X Elite
-([README](../README.md), "why this exists"). The device notes in
+([README](../README.md), opening device list). The device notes in
 [team handoff](team-handoff.md#device-notes) say:
 
 - Qualcomm phone NPU execution has not been tested.
@@ -121,8 +121,8 @@ requalify, or `open()` never does.
   - `docs/tools-and-permissions.md` and `phaseone/runtime/static/tools.md`
 - `examples/vision/sample-dog.jpg` and
   `sdk/android/demo/src/main/assets/sample-dog.jpg` are the same file.
-- Branding is mixed. The repo and CLI are `dtr`, but the package, second
-  console script, API title and error messages say `phaseone` / PHASEONE.
+- Branding is mixed. The README and Python package say phaseone, while the
+  repo, the `dtr` CLI shown in the README and the `dtr/` package say dtr.
 
 **Fix.**
 
