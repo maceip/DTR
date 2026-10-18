@@ -30,6 +30,25 @@ uv run dtr classify .work/vision --model vision \
 
 same image, same feature, two engines. results include the prediction and engine used. leave out `--backend` to let the runtime select a compatible variant
 
+### on a mac today
+
+checked 2026-10-18 on apple silicon, macos 25.5, python 3.12, executorch 1.5.1 and litert 2.3.0
+
+| check | result |
+| --- | --- |
+| `dtr classify`, executorch | samoyed, 0.758, 7.4 ms |
+| `dtr classify`, litert | samoyed, 0.758, 2.7 ms |
+| native engine tests | 10 passed |
+| model update lifecycle on both engines | passed: install, rollback, corrupt download, failed check, fallback, requalification |
+
+both engines run on the cpu, with executorch using xnnpack. metal, core ml and mlx aren't wired in yet. the first `uv sync` and `dtr build` download torch and the model weights; that took about 30 minutes here
+
+run the native engine tests after the `uv sync` above
+
+```sh
+uv run --group dev pytest tests/test_runtime_native.py
+```
+
 ## 2. put it in your app
 
 embed the sdk and its engines: python for macos and linux, [kotlin for android](sdk/android/), [typescript for the browser](sdk/typescript/). your users install your app
