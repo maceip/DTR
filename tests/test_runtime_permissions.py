@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from test_runtime_contracts import package_dir as package_dir
 from test_runtime_contracts import tool_package
 
-from dtr import PermissionPolicy, Runtime, RuntimeFault
+from localkit import PermissionPolicy, Runtime, RuntimeFault
 from phaseone.runtime.api import create_app
 from phaseone.runtime.host import Application
 from phaseone.runtime.package import load_package

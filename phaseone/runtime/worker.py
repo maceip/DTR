@@ -45,7 +45,7 @@ def worker_main(pipe, package_path: str, expected_digest: str, variant_data: dic
     # Keep runtime/library discovery variables, excluding ambient service credentials.
     keep = {"PATH", "HOME", "TMPDIR", "TMP", "TEMP", "SYSTEMROOT", "WINDIR",
             "LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "ADSP_LIBRARY_PATH", "QNN_SDK_ROOT",
-            "PYTHONPATH", "VIRTUAL_ENV", "LANG", "LC_ALL", "LITERT_DISPATCH_LIB_DIR", "DTR_QNN_ROOT"}
+            "PYTHONPATH", "VIRTUAL_ENV", "LANG", "LC_ALL", "LITERT_DISPATCH_LIB_DIR", "LOCALKIT_QNN_ROOT"}
     environment = {key: value for key, value in os.environ.items() if key in keep}
     os.environ.clear()
     os.environ.update(environment)

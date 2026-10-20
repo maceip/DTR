@@ -5,6 +5,8 @@ import importlib.metadata
 import os
 import platform
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
@@ -51,6 +53,69 @@ def runtime_build_id() -> str:
     return digest.hexdigest()
 
 
+def _darwin_memory_and_soc() -> tuple[str | None, int | None]:
+    soc = None
+    try:
+        out = subprocess.run(
+            ["sysctl", "-n", "machdep.cpu.brand_string"],
+            capture_output=True, text=True, timeout=2, check=False,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            soc = out.stdout.strip()
+    except OSError:
+        pass
+    available_mb = None
+    try:
+        vm = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=2, check=False)
+        if vm.returncode == 0:
+            page_match = re.search(r"page size of (\d+) bytes", vm.stdout)
+            page_size = int(page_match.group(1)) if page_match else 16384
+            reclaimable_pages = 0
+            for key in ("Pages free", "Pages inactive", "Pages speculative", "Pages purgeable"):
+                match = re.search(rf"^{re.escape(key)}:\s+(\d+)\.", vm.stdout, re.MULTILINE)
+                if match:
+                    reclaimable_pages += int(match.group(1))
+            if reclaimable_pages > 0:
+                available_mb = (reclaimable_pages * page_size) // (1024 ** 2)
+    except OSError:
+        pass
+    return soc, available_mb
+
+
+def _linux_available_memory_mb() -> int | None:
+    try:
+        text = Path("/proc/meminfo").read_text()
+        match = re.search(r"^MemAvailable:\s+(\d+)\s+kB", text, re.MULTILINE)
+        if match:
+            return int(match.group(1)) // 1024
+    except OSError:
+        pass
+    return None
+
+
+def _discover_adb_devices() -> list[dict]:
+    adb = shutil.which("adb")
+    if not adb:
+        return []
+    try:
+        out = subprocess.run([adb, "devices", "-l"], capture_output=True, text=True, timeout=2, check=False)
+        if out.returncode != 0:
+            return []
+        devices = []
+        for line in out.stdout.splitlines()[1:]:
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] == "device":
+                meta = {"serial": parts[0]}
+                for item in parts[2:]:
+                    if ":" in item:
+                        k, v = item.split(":", 1)
+                        meta[k] = v
+                devices.append(meta)
+        return devices
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+
+
 def discover() -> dict:
     system = platform.system().lower()
     if system == "linux" and (os.environ.get("ANDROID_ROOT") or Path("/system/build.prop").exists()):
@@ -69,15 +134,20 @@ def discover() -> dict:
     except (ValueError, AttributeError, OSError):
         memory_mb = None
     soc = None
-    for name in ("/sys/devices/soc0/machine", "/sys/devices/soc0/soc_id",
-                 "/proc/device-tree/compatible"):
-        try:
-            raw = Path(name).read_text().replace("\x00", " ").strip()
-            if raw:
-                soc = raw.lower()
-                break
-        except (OSError, UnicodeError):
-            pass
+    available_memory_mb = None
+    if system == "darwin":
+        soc, available_memory_mb = _darwin_memory_and_soc()
+    else:
+        available_memory_mb = _linux_available_memory_mb()
+        for name in ("/sys/devices/soc0/machine", "/sys/devices/soc0/soc_id",
+                     "/proc/device-tree/compatible"):
+            try:
+                raw = Path(name).read_text().replace("\x00", " ").strip()
+                if raw:
+                    soc = raw.lower()
+                    break
+            except (OSError, UnicodeError):
+                pass
     components = {}
     if versions.get("executorch"):
         components["executorch.xnnpack"] = versions["executorch"]
@@ -88,14 +158,49 @@ def discover() -> dict:
         _, profile = qnn
         components["executorch.qnn_runner"] = profile["executorch_version"]
         components["qnn.htp"] = profile["qnn_version"]
+    accelerator_info = None
     if system == "darwin" and arch == "arm64":
         try:
             components["mlx.metal"] = importlib.metadata.version("mlx-metal")
         except importlib.metadata.PackageNotFoundError:
             pass
+        try:
+            import mlx.core as mx
+            if mx.metal.is_available():
+                info = mx.device_info() if hasattr(mx, "device_info") else mx.metal.device_info()
+                working_set_mb = int(info.get("max_recommended_working_set_size", 0)) // (1024 ** 2)
+                max_buffer_mb = int(info.get("max_buffer_length", 0)) // (1024 ** 2)
+                accelerator_info = {
+                    "type": "metal_gpu",
+                    "device_name": info.get("device_name") or soc,
+                    "architecture": info.get("architecture"),
+                    "max_recommended_working_set_mb": working_set_mb or None,
+                    "max_buffer_length_mb": max_buffer_mb or None,
+                }
+                if not soc and info.get("device_name"):
+                    soc = str(info["device_name"])
+        except Exception:
+            pass
+    base_available = available_memory_mb or memory_mb
+    inference_budget_mb = int(base_available * (0.85 if system == "darwin" else 0.80)) if base_available else None
+    if accelerator_info and accelerator_info.get("max_recommended_working_set_mb") and inference_budget_mb:
+        inference_budget_mb = min(inference_budget_mb, accelerator_info["max_recommended_working_set_mb"])
+    harnesses = {
+        "mlx": versions.get("mlx-lm") or ("cli:" + shutil.which("mlx_lm.generate") if shutil.which("mlx_lm.generate") else None),
+        "litert_lm": versions.get("litert-lm-api"),
+        "litert": versions.get("ai-edge-litert"),
+        "executorch": versions.get("executorch"),
+        "qnn_runner": components.get("executorch.qnn_runner"),
+        "llama_server": shutil.which("llama-server"),
+        "ollama": shutil.which("ollama"),
+    }
     return {"system": system, "architecture": arch, "os_version": platform.release(),
-            "memory_mb": memory_mb, "soc": soc, "runtimes": versions,
-            "components": components, "phaseone_version": "0.3.0",
+            "memory_mb": memory_mb, "available_memory_mb": available_memory_mb,
+            "inference_budget_mb": inference_budget_mb, "soc": soc,
+            "accelerator": accelerator_info, "runtimes": versions,
+            "components": components, "harnesses": harnesses,
+            "connected_devices": _discover_adb_devices(),
+            "phaseone_version": "0.3.0",
             "runtime_build": runtime_build_id(),
             "python": platform.python_version(), "location": "native_host"}
 
@@ -117,7 +222,7 @@ def compatibility(variant: Variant, host: dict) -> list[str]:
     if qnn_runner and (host["system"] != "linux" or canonical_arch(host["architecture"]) != "arm64"):
         reasons.append("The installed QNN runner requires Linux ARM64")
     if distribution and not installed:
-        reasons.append("Install the DTR QNN host runtime" if qnn_runner
+        reasons.append("Install the LocalKit QNN host runtime" if qnn_runner
                        else f"Install {distribution} for {variant.backend}/{variant.engine}")
     elif distribution and target.runtime_version:
         try:

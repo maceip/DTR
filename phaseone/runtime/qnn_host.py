@@ -12,7 +12,7 @@ from .schema import relative_path
 
 
 def qnn_installation(*, verify=False):
-    root = Path(os.environ.get("DTR_QNN_ROOT", str(Path(sys.prefix).parent / "native/qnn"))).resolve()
+    root = Path(os.environ.get("LOCALKIT_QNN_ROOT", str(Path(sys.prefix).parent / "native/qnn"))).resolve()
     profile = root / "runtime.json"
     if not profile.is_file():
         return None

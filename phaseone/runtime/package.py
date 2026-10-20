@@ -108,6 +108,18 @@ def atomic_json(path: Path, value, *, private: bool = False):
             os.unlink(name)
 
 
+def link_or_copy(source: Path, destination: Path) -> None:
+    """Hardlink on the same filesystem to avoid duplicating multi-GB weights; copy across mounts."""
+    resolved = source.resolve()
+    if resolved == destination.resolve():
+        return
+    destination.unlink(missing_ok=True)
+    try:
+        os.link(resolved, destination)
+    except OSError:
+        shutil.copyfile(resolved, destination)
+
+
 def contained_file(root: Path, name: str) -> Path:
     relative_path(name)
     root = root.resolve()
@@ -305,7 +317,7 @@ def install(source: Path, store: Path, *, trust_store: Path | None = None,
             for name in names:
                 destination = staging / name
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(contained_file(package.root, name), destination)
+                link_or_copy(contained_file(package.root, name), destination)
         else:
             try:
                 with zipfile.ZipFile(source) as archive:

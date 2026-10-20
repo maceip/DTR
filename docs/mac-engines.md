@@ -12,7 +12,7 @@ This repo uses these names for them:
 | --- | --- | --- | --- |
 | Model | Trained weights in one format and quantization | Qwen3-0.6B 4-bit MLX, Qwen3-0.6B Q8_0 GGUF | a `variant` inside a package or release |
 | Engine | Software that executes those weights on some hardware | ExecuTorch, LiteRT, MLX, llama.cpp, Ollama | `backend` (plus `engine`: `program`, `compiled`, `interpreter`, `llm`) |
-| Runtime | Picks a variant this device can run, verifies and loads it, checks updates, and reports what actually ran | DTR (phaseone) | `Runtime`, `ReleaseManager` |
+| Runtime | Picks a variant this device can run, verifies and loads it, checks updates, and reports what actually ran | LocalKit (phaseone) | `Runtime`, `ReleaseManager` |
 
 ## `mlx`: inside the app, on the Metal GPU
 
@@ -20,7 +20,7 @@ This repo uses these names for them:
   process. The default target is the Metal GPU; `--accelerator cpu` runs on the
   CPU instead.
 - Install it with `uv sync --extra mlx` (Apple Silicon only).
-- `dtr import <mlx model dir> <package> --backend mlx` packages an MLX model
+- `localkit import <mlx model dir> <package> --backend mlx` packages an MLX model
   directory, such as an `mlx-community` Hugging Face download.
   - It copies the data files and records their hashes.
   - It skips code files (`.py` and other executable suffixes), because mlx-lm
@@ -51,14 +51,14 @@ This repo uses these names for them:
 - `base_url` must point to this machine (`127.0.0.1`, `localhost` or `::1`),
   so a package can't direct the app to a remote host. The binding is hashed
   like any other artifact.
-- `dtr import binding.json <package> --backend local_server --context N`
+- `localkit import binding.json <package> --backend local_server --context N`
   packages it. `--context` is required, because the runtime can't read the
   server's limit.
 - At load, the worker asks `/models` for the list of served models. If the
   server is missing or doesn't serve the model, loading fails with
   `backend_unavailable` or `server_model_unavailable`. With
   `allow_fallback`, the next variant is tried.
-- The server loads its own weights, so DTR can't verify them. Results report
+- The server loads its own weights, so LocalKit can't verify them. Results report
   `weights_verified: false`, and the server's accelerator is reported as not
   observed. Release checks still run against the served model before a
   release activates.

@@ -9,7 +9,15 @@ import tempfile
 from pathlib import Path
 
 from .errors import RuntimeFault
-from .package import MANIFEST, SIGNATURE, atomic_json, digest_file, load_package, read_json
+from .package import (
+    MANIFEST,
+    SIGNATURE,
+    atomic_json,
+    digest_file,
+    link_or_copy,
+    load_package,
+    read_json,
+)
 from .schema import Manifest, Model, Variant
 
 
@@ -158,8 +166,7 @@ def import_model(source: Path, destination: Path, *, backend, name="my-agent", v
     def copy(identifier, path):
         key = f"{model}.{variant_id}.{identifier}"
         target_path = destination / f"{model}-{variant_id}-{identifier}{path.suffix}"
-        if path.resolve() != target_path.resolve():
-            shutil.copyfile(path, target_path)
+        link_or_copy(path, target_path)
         artifacts[key] = record(target_path, destination)
         return key
     artifact_id = copy("model", source)
@@ -229,7 +236,7 @@ def import_mlx(source: Path, destination: Path, *, name="my-agent", version="1.0
         if not path.is_file() or path.name.startswith(".") or path.name.lower().endswith(NATIVE_SUFFIXES):
             continue
         key = f"{model}.{variant_id}." + re.sub(r"[^A-Za-z0-9_.-]", "-", path.name)
-        shutil.copyfile(path, folder / path.name)
+        link_or_copy(path, folder / path.name)
         artifacts[key] = record(folder / path.name, destination)
         ids[path.name] = key
     variant = Variant(id=variant_id, backend="mlx", engine="llm", artifact=ids["config.json"],

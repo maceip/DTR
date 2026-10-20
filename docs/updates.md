@@ -1,17 +1,17 @@
-# DTR Model CDN: delivery and updates
+# LocalKit Model CDN: delivery and updates
 
-**The developer integrates DTR. DTR owns model selection, native dependency
+**The developer integrates LocalKit. LocalKit owns model selection, native dependency
 packaging, delivery, compatibility checks, and update coordination.** An app
 should not need different inference or download code for each phone or board.
-The developer-facing delivery product is **DTR Model CDN**: device-matched
+The developer-facing delivery product is **LocalKit Model CDN**: device-matched
 artifacts, fast-follow installation, streamed delivery, caching, and updates.
 This technical document describes the providers underneath that interface.
 Platform delivery providers are implementation details, not separate integration
 requirements for app developers.
 
 **Embedded integration is a product requirement.** Customers install only the
-developer's app and use that app's interface. DTR must not introduce another app
-installation, a DTR customer account, a setup flow, or branded update prompts.
+developer's app and use that app's interface. LocalKit must not introduce another app
+installation, a LocalKit customer account, a setup flow, or branded update prompts.
 The separate Android runtime-app proposal is rejected, including as an optional
 route. Development hosts remain explicitly started developer tools.
 
@@ -24,19 +24,19 @@ catalogs, and the additional delivery adapters below are not implemented yet.
 
 Choose the execution engine for the task and hardware, then choose how its
 components arrive. A model might execute through native LiteRT on the NPU while
-its data arrives from DTR's CDN. Another model might use a Windows-managed ONNX
+its data arrives from LocalKit's CDN. Another model might use a Windows-managed ONNX
 provider or a downloaded web engine. A web delivery option must not remove the
 native paths. Android and Linux/IoT are the first deployment priorities; macOS
 and Windows remain development and desktop targets. iOS follows later.
 
 | Route | What can change without rebuilding the consuming app? | Accelerator access and boundary |
 | --- | --- | --- |
-| Bundled native engines + DTR model delivery | Compatible models, graphs, tokenizers, routing, and selection among installed delegates | Existing native CPU/GPU/NPU capabilities. A missing native library still needs a code-delivery channel. |
-| Platform-managed engines | Engine/provider improvements behind a compatible API | Windows ML supplies supported native execution providers; Play services LiteRT exposes its supported delegates. DTR does not control their release schedules. |
+| Bundled native engines + LocalKit model delivery | Compatible models, graphs, tokenizers, routing, and selection among installed delegates | Existing native CPU/GPU/NPU capabilities. A missing native library still needs a code-delivery channel. |
+| Platform-managed engines | Engine/provider improvements behind a compatible API | Windows ML supplies supported native execution providers; Play services LiteRT exposes its supported delegates. LocalKit does not control their release schedules. |
 | Native runtime components on Linux/IoT and directly distributed desktops | Compatible engine and delegate binaries, loaded by a new worker/session | Native accelerator access where the runtime, driver, OS, licensing, and signing support it. Not an automatic driver/firmware updater. |
 | Embedded WASM + a native host interface | Execution control over installed engines; broader portable processing needs a suitable host interface | Experimental Android host exercised native CPU and OpenCL GPU execution. NPU remains unvalidated. No WebView required; a missing vendor library cannot be invented by the module. |
 | WebView/browser + JS/WASM/WebGPU | Compatible web engines and GPU kernels | WebGPU reaches supported GPU functionality. It does not load arbitrary vendor NPU delegates. Useful option, not the mandatory foundation. |
-| App build integration | DTR prepares new embedded native dependencies for the next app release | Keeps application code stable; does not remove the release when that is the only channel for a new binary. |
+| App build integration | LocalKit prepares new embedded native dependencies for the next app release | Keeps application code stable; does not remove the release when that is the only channel for a new binary. |
 
 Native component delivery remains a proposal. The experimental Android portable
 adapter host is implemented, with the bounded device result below; automatic
@@ -45,9 +45,9 @@ app-store acceptance or support on every device.
 
 ## Android direction: keep the native interface stable
 
-The app embeds DTR's native host and the engine/vendor interfaces selected at
-build time. DTR updates compatible models and portable execution programs around
-that host. Model compilation belongs on DTR's infrastructure where possible.
+The app embeds LocalKit's native host and the engine/vendor interfaces selected at
+build time. LocalKit updates compatible models and portable execution programs around
+that host. Model compilation belongs on LocalKit's infrastructure where possible.
 LiteRT explicitly separates its [compiler plugin](https://developers.google.com/edge/litert/next/compiler_plugin)
 from its [dispatch interface](https://developers.google.com/edge/litert/next/dispatch).
 The compiler can package accelerator bytecode into a model that the installed
@@ -61,15 +61,15 @@ opaque handles. It does not yet expose a general graph-building interface or
 portable tokenization/preprocessing. Those require deliberate additions to the
 host contract; arbitrary new vendor APIs are not automatically available.
 
-This is how DTR should minimize native app releases. It is not a promise that
+This is how LocalKit should minimize native app releases. It is not a promise that
 every future delegate can arrive without one. A genuinely new native library or
 host capability still needs its supported distribution channel. Existing apps
-keep a qualified working path until the new capability is available. DTR's build
+keep a qualified working path until the new capability is available. LocalKit's build
 integration should own that dependency change without application-code rewrites.
 
-## Packaging belongs inside DTR
+## Packaging belongs inside LocalKit
 
-DTR Model CDN has one delivery contract across Android, Linux/IoT, macOS,
+LocalKit Model CDN has one delivery contract across Android, Linux/IoT, macOS,
 Windows, and web, with Android as the first implementation target. Fast-follow
 means delivery after installation where supported, otherwise at the first
 allowed app lifecycle window. Streamed delivery means model bytes can be read
@@ -77,7 +77,7 @@ incrementally into storage or an engine that supports that loading interface;
 it does not promise inference before all required weights are available.
 
 The developer declares the capability, target platforms, quality requirements,
-and update policy. DTR's build integration should select and generate the needed
+and update policy. LocalKit's build integration should select and generate the needed
 Maven/Gradle dependencies, device targeting, feature modules, bundled baseline,
 and model-delivery configuration. Developers should not learn AI Packs or author
 one integration per chip. Advanced configuration can override the defaults.
@@ -90,7 +90,7 @@ modules share the app version and require a new full bundle for new code, as
 explained in the [base-module guide](https://developer.android.com/guide/app-bundle/configure-base).
 
 Therefore Play delivery is an optional installation/size optimization, not our
-only update transport. DTR-managed downloads can update compatible model data
+only update transport. LocalKit-managed downloads can update compatible model data
 outside the app-release cadence. Both transports should present the same model
 contract, verification, caching, and session behavior. They should not require
 duplicate model copies by default. Do not use Play AI Packs as a cross-app model
@@ -98,7 +98,7 @@ store: Google's guide restricts their models to the publisher's apps.
 
 [LiteRT's NPU integration](https://developers.google.com/edge/litert/next/npu)
 already supports vendor-specific native paths and documents AI Packs plus
-feature-module packaging. DTR should reuse that integration and generate its
+feature-module packaging. LocalKit should reuse that integration and generate its
 configuration, rather than require developers to reproduce it. LiteRT supports
 AOT and some on-device compilation paths; supported operations and SoCs still
 need qualification. Not every vendor/model combination supports JIT compilation.
@@ -109,7 +109,7 @@ need qualification. Not every vendor/model combination supports JIT compilation.
 including vendor GPU/NPU providers, through its catalog. Compatible provider
 updates reach apps through Windows Update without an application update. An app
 cannot force an updated provider installation; availability and drivers matter.
-DTR should wrap this route, with an appropriate fallback where needed.
+LocalKit should wrap this route, with an appropriate fallback where needed.
 [Update behavior](https://learn.microsoft.com/en-us/windows/ai/new-windows-ml/update-execution-providers),
 [managed versus bundled providers](https://learn.microsoft.com/en-us/windows/ai/new-windows-ml/windows-ml-eps-vs-bring-your-own).
 
@@ -149,7 +149,7 @@ another engine candidate, not evidence that an unknown vendor NPU becomes
 accessible. MLC/TVM-compiled native libraries have the same distribution question.
 
 For native plugins, [ONNX Runtime provides explicit registration APIs](https://onnxruntime.ai/docs/execution-providers/plugin-ep-libraries/usage.html).
-Libraries must stay loaded while their sessions exist. DTR should activate a
+Libraries must stay loaded while their sessions exist. LocalKit should activate a
 new component in a fresh worker instead of replacing code beneath active work.
 On macOS, [library validation](https://developer.apple.com/documentation/BundleResources/Entitlements/com.apple.security.cs.disable-library-validation)
 also affects in-process third-party plugins; a separately signed runtime worker
@@ -165,7 +165,7 @@ activation. Existing sessions keep their engine/model; new sessions may use the
 update. Preserve a working version for rollback. Do not attempt to move an
 engine-specific KV cache to a different engine.
 
-Builds should resolve DTR's tested native dependency set into a lockfile. Normal
+Builds should resolve LocalKit's tested native dependency set into a lockfile. Normal
 development builds may refresh it under policy; release CI uses frozen versions.
 An optional CI integration can prepare a required native app release. The
 customer's signing and publication permissions remain under their control.
@@ -219,7 +219,7 @@ source set.
 ```python
 import hashlib
 from pathlib import Path
-from dtr import ReleasePolicy, Runtime
+from localkit import ReleasePolicy, Runtime
 
 # Pin the publisher key shipped with your application, not a key downloaded
 # from the same untrusted endpoint as a new catalog.
@@ -232,7 +232,7 @@ policy = ReleasePolicy(
     allow_fallback=True,
 )
 
-with Runtime(".dtr", catalog_keys=keys) as runtime:
+with Runtime(".localkit", catalog_keys=keys) as runtime:
     # Synchronous work: call from the app's allowed update executor, not its UI.
     report = runtime.releases.update(
         "https://your-model-host.example/catalog.json", "vision", policy,
@@ -242,6 +242,6 @@ with Runtime(".dtr", catalog_keys=keys) as runtime:
 
 `check`, `update`, `state`, `open`, `requalify`, and `rollback` are implemented in
 Python and Android. The publisher chooses candidate priority; current selection
-is not an automatic fleet-wide performance optimizer. A hosted DTR catalog,
+is not an automatic fleet-wide performance optimizer. A hosted LocalKit catalog,
 curation pipeline, lifecycle scheduler, build manifest resolver, and platform
 adapters are the remaining product work.

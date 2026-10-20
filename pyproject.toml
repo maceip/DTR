@@ -1,7 +1,7 @@
 [project]
-name = "dtr-runtime"
+name = "localkit"
 version = "0.3.0"
-description = "DTR: portable local AI across devices and native inference engines"
+description = "LocalKit: hardware-aware local AI runtime and resolver across consumer devices"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi>=0.115,<1",
@@ -27,7 +27,7 @@ mlx = ["mlx-lm==0.32.2; sys_platform == 'darwin' and platform_machine == 'arm64'
 dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.11,<1"]
 
 [project.scripts]
-dtr = "phaseone.runtime.cli:main"
+localkit = "phaseone.runtime.cli:main"
 phaseone-runtime = "phaseone.runtime.cli:main"
 
 [build-system]
@@ -35,7 +35,7 @@ requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["phaseone", "dtr"]
+packages = ["phaseone", "localkit"]
 
 # Qualcomm/Linux hosts need the CPU PyTorch dependency, not PyPI's CUDA bundle.
 # ExecuTorch still selects its own delegates independently of this dependency.

@@ -7,8 +7,8 @@ import json
 import queue
 import re
 import threading
+import time
 import uuid
-from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, Request
@@ -73,6 +73,19 @@ class ToolInvocation(Contract):
     name: str
     arguments: dict[str, Any]
     action_id: str = Field(min_length=1, max_length=256)
+
+
+class OpenAIChatCompletionRequest(Selection):
+    model: str
+    messages: list[Message] = Field(min_length=1, max_length=4096)
+    temperature: float | None = Field(default=None, ge=0, le=2)
+    top_p: float | None = Field(default=None, gt=0, le=1)
+    top_k: int | None = Field(default=None, ge=1, le=10000)
+    max_tokens: int | None = Field(default=None, ge=1, le=32768)
+    max_completion_tokens: int | None = Field(default=None, ge=1, le=32768)
+    stop: str | list[str] | None = None
+    stream: bool = False
+    tools: list[dict[str, Any]] = Field(default_factory=list, max_length=32)
 
 
 class BodyLimit:
@@ -348,9 +361,89 @@ def create_app(runtime: Runtime, *, token: str, allowed_origins=()) -> FastAPI:
     def verify_receipts():
         return runtime.state.verify_receipts()
 
-    static = Path(__file__).with_name("static")
-    if static.is_dir():
-        from fastapi.staticfiles import StaticFiles
+    def _resolve_openai_model(requested_model: str):
+        # 1. Check already loaded packages by model name, package name, or digest
+        for digest, pkg in list(runtime.packages.items()):
+            if requested_model in pkg.manifest.models:
+                defaults = pkg.manifest.metadata.get("generation_defaults", {}).get(requested_model, {})
+                return runtime.application(digest), requested_model, defaults
+            if requested_model in (pkg.manifest.name, digest):
+                first_model = next(iter(pkg.manifest.models))
+                defaults = pkg.manifest.metadata.get("generation_defaults", {}).get(first_model, {})
+                return runtime.application(digest), first_model, defaults
+        # 2. Dynamically resolve from local HF cache / packages via resolver
+        from .resolver import resolve_model
 
-        app.mount("/", StaticFiles(directory=static, html=True), name="console")
+        resolved = resolve_model(requested_model, state_dir=runtime.root, device=runtime.device)
+        application = runtime.load(resolved["package_path"])
+        return application, resolved["model"], resolved.get("generation_defaults", {})
+
+    @app.get("/v1/models")
+    def list_openai_models():
+        data = []
+        created = int(time.time())
+        for digest, pkg in runtime.packages.items():
+            gen_meta = pkg.manifest.metadata.get("generation_defaults", {})
+            for model_name, model_def in pkg.manifest.models.items():
+                data.append({
+                    "id": model_name,
+                    "object": "model",
+                    "created": created,
+                    "owned_by": "localkit",
+                    "package_name": pkg.manifest.name,
+                    "package_digest": digest,
+                    "task": model_def.task,
+                    "variants": [v.id for v in model_def.variants],
+                    "generation_defaults": gen_meta.get(model_name, {}),
+                })
+        return {"object": "list", "data": data}
+
+    @app.post("/v1/chat/completions")
+    async def openai_chat_completions(body: OpenAIChatCompletionRequest, request: Request):
+        application, logical_model, defaults = _resolve_openai_model(body.model)
+        stops = [body.stop] if isinstance(body.stop, str) else (body.stop or [])
+        max_out = body.max_completion_tokens or body.max_tokens or defaults.get("max_output_tokens") or 1024
+        temp = body.temperature if body.temperature is not None else defaults.get("temperature", 0.0)
+        top_p = body.top_p if body.top_p is not None else defaults.get("top_p")
+        top_k = body.top_k if body.top_k is not None else defaults.get("top_k")
+        gen = Generation(
+            max_output_tokens=max_out,
+            temperature=temp,
+            top_p=top_p,
+            top_k=top_k,
+            stop=stops,
+        )
+        options = {**body.selection(), "generation": gen, "tools": body.tools}
+        if not body.stream:
+            result = await execute(
+                request,
+                lambda cancellation: application.chat(logical_model, body.messages, cancellation=cancellation, **options),
+            )
+            usage = result.get("usage") or {}
+            in_tok = usage.get("input_tokens") or 0
+            out_tok = usage.get("output_tokens") or 0
+            return {
+                "id": f"chatcmpl-{result['request_id']}",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": body.model,
+                "choices": [{
+                    "index": 0,
+                    "message": result["message"],
+                    "finish_reason": result.get("finish_reason", "stop"),
+                }],
+                "usage": {
+                    "prompt_tokens": in_tok,
+                    "completion_tokens": out_tok,
+                    "total_tokens": in_tok + out_tok,
+                    **{k: v for k, v in usage.items() if k not in ("input_tokens", "output_tokens")},
+                },
+                "localkit_execution": result.get("execution"),
+                "localkit_receipt": result.get("receipt"),
+            }
+        return stream(
+            request,
+            lambda cancellation: application.chat_stream(logical_model, body.messages, cancellation=cancellation, **options),
+        )
+
     return app

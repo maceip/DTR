@@ -34,7 +34,7 @@ def installed(tmp_path, monkeypatch):
     document = {"format_version": 1, "runner": "bin/runner", "executorch_version": "1.5.0",
                 "qnn_version": "2.46.0", "files": {"bin/runner": hashlib.sha256(runner.read_bytes()).hexdigest()}}
     (root / "runtime.json").write_text(json.dumps(document))
-    monkeypatch.setenv("DTR_QNN_ROOT", str(root))
+    monkeypatch.setenv("LOCALKIT_QNN_ROOT", str(root))
     return root, document
 
 
@@ -67,7 +67,7 @@ def test_native_runner_version_is_independent_of_python_executorch():
             "components": {"executorch.qnn_runner": "1.5.0", "qnn.htp": "2.46.0"}}
     assert compatibility(variant, host) == []
     host["components"].pop("executorch.qnn_runner")
-    assert "Install the DTR QNN host runtime" in compatibility(variant, host)
+    assert "Install the LocalKit QNN host runtime" in compatibility(variant, host)
     host["components"]["executorch.qnn_runner"] = "1.5.0"
     host["soc"] = "SM8750"
     assert any("SoC" in reason for reason in compatibility(variant, host))

@@ -39,6 +39,6 @@ assert.equal(generated.size, 1);
 permissions.replace({version: 1, rules: []});
 const revoked = await gateway.invoke(pkg, 'read_note', {id: 'alice'}, 'demo-0');
 assert.equal(revoked.status, 'denied'); assert.equal(revoked.result, undefined);
-console.log('DTR tool boundary · scripted proposals · no model inference or training');
+console.log('LocalKit tool boundary · scripted proposals · no model inference or training');
 console.table(results.map(({tool, status, error}) => ({tool, status, reason: error?.code || 'allowed'})));
 console.log('Revoked permission blocks the cached note:', revoked.status);

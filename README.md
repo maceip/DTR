@@ -1,142 +1,55 @@
-# phaseone
+# LocalKit
 
-**a runtime for shipping local ai across the devices your customers use — without writing a separate integration for every stack**
+**The hardware-aware runtime and resolver for local AI across consumer devices.**
 
-your model works on your laptop. then the [sponsor guide](https://github.com/aaishikasb/qc-executorch-guide/) hands you a different model build and setup for every device
+Shipping a local model across user devices breaks because three things change on every machine: the native execution harness (`MLX` on Apple Metal, `LiteRT-LM` on Google Tensor/GPU, `ExecuTorch` on Qualcomm/ARM), the live available RAM budget, and the safe KV-cache context window. LocalKit sits between your application and native vendor engines—probing live silicon, auditing local model caches for broken shards, computing exact KV-cache memory limits from `config.json`, staging weights via zero-copy hardlinks (`os.link`), and executing directly on the fastest installed native harness.
 
-- **mobile** — galaxy s25 ultra, snapdragon 8 elite, sm8750, htp v79
-- **xr** — galaxy xr, xnnpack cpu or vulkan gpu
-- **iot** — [ventuno q / qcs8275](https://aihub.qualcomm.com/jobs/jgdd7k7rg), linux and arduino sensors
-- **laptop** — snapdragon x elite, sc8380xp, windows arm64
+### 👉 **[Read the Full Documentation & Visual Architecture Guide → `maceip.github.io/LocalKit`](https://maceip.github.io/LocalKit/)**
 
-same feature, several integrations. next month a better model or delegate lands and you get to do it again
-
-phaseone keeps that work behind one runtime api for text, images, audio, embeddings and tool calls. it selects a compatible packaged model and engine while your app keeps its feature code, tools and permissions
-
-## 1. start on your laptop
-
-from this checkout on macos or linux, with python 3.12 and [uv](https://docs.astral.sh/uv/), build one image classifier for both engines — the cli is `dtr`
-
-```sh
-uv sync --extra executorch --extra litert --extra export
-uv run dtr doctor
-uv run dtr build examples/vision/model.py .work/vision \
-  --name dtr-vision --model vision
-uv run dtr classify .work/vision --model vision \
-  --image examples/vision/sample-dog.jpg --backend executorch
-uv run dtr classify .work/vision --model vision \
-  --image examples/vision/sample-dog.jpg --backend litert
-```
-
-same image, same feature, two engines. results include the prediction and engine used. leave out `--backend` to let the runtime select a compatible variant
-
-### on a mac today
-
-checked 2026-10-18 on apple silicon, macos 25.5, python 3.12, executorch 1.5.1 and litert 2.3.0
-
-| check | result |
+| Documentation Track | Direct Link |
 | --- | --- |
-| `dtr classify`, executorch | samoyed, 0.758, 7.4 ms |
-| `dtr classify`, litert | samoyed, 0.758, 2.7 ms |
-| native engine tests | 10 passed |
-| model update lifecycle on both engines | passed: install, rollback, corrupt download, failed check, fallback, requalification |
+| **1. First Run** | **[Get Started in 60 Seconds](https://maceip.github.io/LocalKit/#/get-started)** — Live hardware discovery, cache audit, and zero-config chat |
+| **2. Mental Model** | **[How LocalKit Works](https://maceip.github.io/LocalKit/#/how-it-works)** — Control Plane vs. Execution Plane, KV-cache physics, and zero-copy staging |
+| **3. Lock Targets** | **[Target Locking (`localkit.lock.json`)](https://maceip.github.io/LocalKit/#/configuration)** — Lock safe context windows across Mac, Android, and Linux SBCs |
+| **4. Build Apps** | **[OpenAI Server & Native SDKs](https://maceip.github.io/LocalKit/#/sdk-and-api)** — Drop-in `/v1/chat/completions` server + Python, Kotlin, & TypeScript SDKs |
+| **5. Reference** | **[CLI Reference](https://maceip.github.io/LocalKit/#/cli-reference)** · **[Mac Engines](https://maceip.github.io/LocalKit/#/mac-engines)** · **[Tools & Permissions](https://maceip.github.io/LocalKit/#/tools-and-permissions)** · **[Model Updates](https://maceip.github.io/LocalKit/#/updates)** |
 
-executorch and litert run on the cpu, with executorch using xnnpack. the first `uv sync` and `dtr build` download torch and the model weights; that took about 30 minutes here
+---
 
-run the native engine tests after the `uv sync` above
+## Instant Quickstart (Zero Config Files)
 
-```sh
-uv run --group dev pytest tests/test_runtime_native.py
-```
-
-### use the mac gpu
-
-two more engines run chat models on a mac: **mlx** runs on the metal gpu inside your app, and **local_server** talks to a model server already running on the machine (ollama, lm studio, llama.cpp's `llama-server`, omlx). package an [mlx-community](https://huggingface.co/mlx-community) model or a server binding, then chat with either
+Requires Python 3.12 and [`uv`](https://docs.astral.sh/uv/) on macOS or Linux. If you already have models in `~/.cache/huggingface/hub` or `.work/`, LocalKit resolves and runs them out of the box:
 
 ```sh
-uv sync --extra mlx
-uv run dtr import path/to/Qwen3-0.6B-4bit .work/chat --backend mlx --model assistant
-echo '{"base_url": "http://127.0.0.1:11434/v1", "model": "qwen3:0.6b"}' > .work/ollama.json
-uv run dtr import .work/ollama.json .work/chat --backend local_server --model assistant --context 4096
-uv run dtr chat .work/chat --backend mlx --prompt "hello"
+# 1. Install runtime + native engines (omit --extra mlx on Linux)
+uv sync --extra mlx --extra executorch --extra litert
+
+# 2. Probe live silicon, reclaimable RAM, and GPU working-set limits
+uv run localkit device
+
+# 3. Scan local caches, compute KV-cache recipes, and flag broken downloads
+uv run localkit models
+
+# 4. Run a model by short name (zero-copy staged onto Metal GPU / LiteRT-LM)
+uv run localkit chat qwen3 --prompt "Reply in one sentence confirming what model you are."
+uv run localkit chat gemma4 --prompt "Say hello in five words."
+
+# 5. Or start an OpenAI-compatible server on http://127.0.0.1:8080/v1
+uv run localkit serve qwen3 --port 8080
+
+# 6. Lock a cross-device compatibility matrix (localkit.toml + localkit.lock.json)
+uv run localkit add qwen3
 ```
 
-| variant (qwen3 0.6b, m5 max) | answer to "name three primary colors, comma separated" | speed | peak memory |
-| --- | --- | --- | --- |
-| mlx 4-bit | `1. Red 2. Blue 3. Yellow` | 426 tok/s | 0.39 gb |
-| mlx 8-bit | `red, blue, yellow` | 366 tok/s | 0.68 gb |
-| llama-server q8_0, through `local_server` | `red, blue, yellow` | – | – |
+---
 
-mlx loads only the files listed in the package, checked by hash. a local server loads its own weights, so dtr can't verify them; results report `weights_verified: false`, and release checks still run before activation. [mac engines](docs/mac-engines.md)
+## Where Things Live
 
-### which variant should you ship?
-
-run every variant your machine can run on your own prompts or images, and see quality, speed and memory side by side
-
-```sh
-echo '{"prompt": "which planet is the red planet? one word", "expected": "mars"}' > .work/prompts.jsonl
-uv run dtr compare .work/chat --inputs .work/prompts.jsonl
-```
-
-on qwen3 0.6b and 8 short prompts, mlx 8-bit and llama-server q8_0 answered all 8 correctly and identically; mlx 4-bit got 7 of 8 using 0.44 gb instead of 0.72 gb. the table is followed by every variant's output for each input. [compare](docs/compare.md)
-
-## 2. put it in your app
-
-embed the sdk and its engines: python for macos and linux, [kotlin for android](sdk/android/), [typescript for the browser](sdk/typescript/). your users install your app
-
-with a python runtime instance, your feature code is
-
-```python
-app = runtime.load(".work/vision")
-result = app.classify("vision", photo)
-```
-
-the package carries device-specific variants, preprocessing and labels. your feature calls `vision`; the runtime handles the engine. existing `.pte`, `.tflite` and `.litertlm` models use the same package format
-
-## 3. give it access to what it needs
-
-register your app's tools and use your existing login to set permissions. this policy lets alice read her notes and save generated code
-
-```json
-{"version": 1, "rules": [
-  {"subject": "alice", "resource": "notes:alice", "action": "read", "effect": "allow"},
-  {"subject": "alice", "resource": "code:patch", "action": "write", "effect": "allow"}
-]}
-```
-
-reading someone else's notes, uploading them, running that code and training on the notes each need their own permission. the runtime checks every tool request before your handler runs, including after a model change
-
-try those rules against sample tool requests, then run the proof checks
-
-```sh
-npm --prefix sdk/typescript ci
-npm --prefix sdk/typescript run build
-node examples/permissions/demo.mjs
-npm --prefix sdk/typescript run typecheck
-npm --prefix sdk/typescript run lint:proofs
-```
-
-the typescript gateway uses permix, gdp-ts proofs and the upstream gdp-ts linter. python and android enforce the same resource rules at runtime
-
-## 4. ship it, then improve it
-
-sign and package the model files you just ran
-
-```sh
-uv run dtr keygen .work/publisher.key --trust
-uv run dtr sign .work/vision --key .work/publisher.key
-uv run dtr verify .work/vision --require-signature
-uv run dtr pack .work/vision .work/vision.phaseone
-uv run dtr receipts --verify
-```
-
-publish improved models under the same `vision` capability. with publisher trust and an update policy configured, your app calls
-
-```python
-runtime.releases.update(catalog_url, "vision", policy)
-app = runtime.open("vision")
-```
-
-the runtime selects a device-compatible variant, verifies the download and runs the release's checks before activating it. failed checks keep the working version in place. compatible model updates reach your app without changing its feature code or requiring another app build
-
-[model updates](docs/updates.md) · [tools and permissions](docs/tools-and-permissions.md) · [windows setup](docs/windows.md) · [team handoff](docs/team-handoff.md)
+| Path | Contents |
+| --- | --- |
+| [`localkit/`](localkit/) & [`phaseone/runtime/`](phaseone/runtime/) | Public Python SDK (`localkit`) and core control plane: live silicon probe ([`device.py`](phaseone/runtime/device.py)), zero-config resolver & KV-cache sizer ([`resolver.py`](phaseone/runtime/resolver.py)), zero-copy packager ([`package.py`](phaseone/runtime/package.py)), OpenAI/HTTP server ([`api.py`](phaseone/runtime/api.py)), and CLI ([`cli.py`](phaseone/runtime/cli.py)). |
+| [`sdk/android/`](sdk/android/) | Native Android/Kotlin runtime SDK for LiteRT, LiteRT-LM, ExecuTorch, and signed release updates. |
+| [`sdk/typescript/`](sdk/typescript/) | TypeScript & browser runtime SDK with `Permix` + `gdp-ts` permission proofs. |
+| [`sdk/contracts/`](sdk/contracts/) | Shared JSON schemas and cross-language conformance test vectors (resolver, catalog digests, and permissions). |
+| [`docs/`](docs/) | Multi-page documentation site (served via GitHub Pages at **[`maceip.github.io/LocalKit`](https://maceip.github.io/LocalKit/)**). |
+| [`tests/`](tests/) | Automated test suite (`uv run --group dev pytest`). |

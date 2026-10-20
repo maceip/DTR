@@ -1,4 +1,4 @@
-"""Sponsor ExecuTorch/QNN text runner behind the normal DTR chat interface."""
+"""ExecuTorch/QNN text runner behind the normal LocalKit chat interface."""
 
 import json
 import os
@@ -23,7 +23,7 @@ class QnnChat:
 
         installation = qnn_installation(verify=True)
         if installation is None:
-            raise RuntimeFault("qnn_unavailable", "Install the DTR QNN host runtime")
+            raise RuntimeFault("qnn_unavailable", "Install the LocalKit QNN host runtime")
         self.root, self.profile = installation
         self.package, self.variant, self.cache = package, variant, Path(cache)
         self.process = None

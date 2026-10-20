@@ -1,5 +1,5 @@
 import {build} from 'esbuild';
-import {cp, mkdir, readFile, rm} from 'node:fs/promises';
+import {cp, readFile, rm} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -22,8 +22,4 @@ for (const [name, directory] of [['@litertjs/core', 'litert'], ['@litert-lm/core
 }
 await cp('licenses', 'dist/licenses', {recursive: true});
 await cp('THIRD_PARTY_NOTICES.md', 'dist/THIRD_PARTY_NOTICES.md');
-const target = path.resolve(root, '../../phaseone/runtime/static/sdk');
-await rm(target, {recursive: true, force: true});
-await mkdir(target, {recursive: true});
-await cp('dist', target, {recursive: true});
 console.log('Built the SDK, isolated inference worker, and local WASM assets.');

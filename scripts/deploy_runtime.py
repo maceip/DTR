@@ -58,7 +58,7 @@ def main():
         print('Preparing the board transfer...', file=sys.stderr, flush=True)
         # USB transfer is faster than compressing large model weights on the host.
         with tarfile.open(archive, 'w') as tar:
-            for name in ('phaseone', 'dtr', 'pyproject.toml', 'uv.lock', 'README.md', 'docs',
+            for name in ('phaseone', 'localkit', 'pyproject.toml', 'uv.lock', 'README.md', 'docs',
                          'scripts/setup_runtime_board.sh', 'scripts/run_runtime_board.sh'):
                 tar.add(ROOT / name, arcname=name, filter=lambda item: None if '__pycache__' in item.name else item)
             for item in package_archives:

@@ -17,7 +17,7 @@ var adapter = new PortableAdapter(verifiedWasm, catalogSha256);
 var result = adapter.execute(nativeBindings, requestHandle);
 ```
 
-The bindings are DTR's internal backend extension point. Application developers
+The bindings are LocalKit's internal backend extension point. Application developers
 should continue using the application-level inference API. Automatic integration
 with `ReleaseManager`, catalog publication, and app lifecycle scheduling remains
 to be built. Hash verification here does not replace catalog authentication.

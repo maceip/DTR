@@ -41,8 +41,8 @@ def token_file(path: Path, *, create=False):
 
 
 def parser():
-    root = argparse.ArgumentParser(description="PHASEONE Runtime — one application across ExecuTorch, LiteRT, MLX and local model servers")
-    root.add_argument("--version", action="version", version="PHASEONE Runtime 0.3.0")
+    root = argparse.ArgumentParser(prog="localkit", description="LocalKit Runtime — one application across ExecuTorch, LiteRT, MLX and local model servers")
+    root.add_argument("--version", action="version", version="LocalKit Runtime 0.3.0")
     commands = root.add_subparsers(dest="command", required=True)
     parsers = {}
     def command(name, help):
@@ -53,6 +53,12 @@ def parser():
         parsers[name] = item
         return item
     command("doctor", "Report host capabilities and installed engines")
+    command("device", "Report host hardware, live memory budget, and installed engines")
+    models_cmd = command("models", "Scan local Hugging Face cache and packages; report runnable models, KV-cache recipes, and incomplete downloads")
+    models_cmd.add_argument("--show-incomplete", action="store_true", help="Include full list of incomplete/corrupted cache directories")
+    add_cmd = command("add", "Resolve a model for this host and consumer target hardware, writing localkit.toml and localkit.lock.json")
+    add_cmd.add_argument("model_query", help="Model family or name (e.g. qwen3, gemma4, qwen2.5-coder)")
+    add_cmd.add_argument("--project-dir", type=Path, default=Path("."))
     command("schema", "Print the versioned application package schema")
     command("catalog-schema", "Print the shared model-release catalog schema")
     for name in ("release-check", "release-update", "release-state", "release-rollback", "release-requalify"):
@@ -124,7 +130,7 @@ def parser():
         item.add_argument("--grant", action="append", default=[])
         item.add_argument("--workspace", type=Path)
         if name != "tool":
-            item.add_argument("--model", default="assistant" if name == "chat" else "model")
+            item.add_argument("--model", default=None)
             selection(item)
         if name in ("run", "bench"):
             item.add_argument("--inputs", required=True, help="JSON file, literal JSON, or - for stdin")
@@ -142,8 +148,8 @@ def parser():
             item.add_argument("--agent", action="store_true")
             item.add_argument("--stream", action="store_true")
             item.add_argument("--json", action="store_true", help="Emit stream events as NDJSON")
-            item.add_argument("--max-tokens", type=int, default=128)
-            item.add_argument("--temperature", type=float, default=0)
+            item.add_argument("--max-tokens", type=int, default=None)
+            item.add_argument("--temperature", type=float, default=None)
             item.add_argument("--timeout", type=float, default=120)
             item.add_argument("--stop", action="append", default=[])
         if name == "bench":
@@ -211,10 +217,29 @@ def run(args):
                                    allow_fallback=args.allow_fallback)
             operation = manager.check if args.command == "release-check" else manager.update
             return dump(operation(args.catalog, args.capability, policy))
-    if args.command == "doctor":
+    if args.command in ("doctor", "device"):
         from .device import discover
 
         return dump(discover())
+    if args.command == "models":
+        from .resolver import scan_local_models
+
+        report = scan_local_models()
+        if not args.show_incomplete:
+            report["incomplete_hf_downloads_count"] = len(report["incomplete_hf_downloads"])
+            report["incomplete_hf_downloads"] = report["incomplete_hf_downloads"][:5]
+        return dump(report)
+    if args.command == "add":
+        from .resolver import build_cross_device_lock
+
+        args.project_dir.mkdir(parents=True, exist_ok=True)
+        lock_doc = build_cross_device_lock(args.model_query, project_dir=args.project_dir, state_dir=args.state_dir)
+        toml_path = args.project_dir / "localkit.toml"
+        lock_path = args.project_dir / "localkit.lock.json"
+        family = lock_doc["resolved_family"]
+        toml_path.write_text(f'[models]\ndefault = "{family}"\n', encoding="utf-8")
+        lock_path.write_text(json.dumps(lock_doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        return dump({"config_file": str(toml_path), "lock_file": str(lock_path), **lock_doc})
     if args.command in ("inspect", "verify"):
         with tempfile.TemporaryDirectory(prefix="phaseone-inspect-") as temporary:
             if args.package.is_dir() or args.package.name == "phaseone.json":
@@ -298,9 +323,11 @@ def run(args):
             import uvicorn
 
             from .api import create_app
+            from .resolver import resolve_model
 
-            for path in args.package:
-                runtime.load(path)
+            for item in args.package:
+                resolved = resolve_model(item, state_dir=args.state_dir, device=runtime.device)
+                runtime.load(resolved["package_path"])
             path = args.token_file or args.state_dir / "host.token"
             token = token_file(path, create=True)
             print(f"PHASEONE Runtime at http://{args.host}:{args.port}; pairing token file: {path}", file=sys.stderr)
@@ -309,7 +336,28 @@ def run(args):
             return
         if args.command == "receipts":
             return dump(runtime.state.verify_receipts() if args.verify else runtime.state.receipts(args.after))
-        app = runtime.application(args.package) if getattr(args, "remote", None) else runtime.load(args.package)
+        gen_defaults = {}
+        if getattr(args, "remote", None):
+            app = runtime.application(args.package)
+            target_model = getattr(args, "model", None) or ("assistant" if args.command == "chat" else "model")
+        else:
+            from .resolver import resolve_model
+
+            resolved = resolve_model(
+                args.package,
+                state_dir=args.state_dir,
+                device=runtime.device,
+                include_all_family_variants=(args.command == "compare"),
+            )
+            app = runtime.load(resolved["package_path"])
+            gen_defaults = resolved.get("generation_defaults") or {}
+            models_in_pkg = list(app.package.manifest.models)
+            default_fallback = "assistant" if args.command == "chat" else "model"
+            target_model = getattr(args, "model", None) or (
+                default_fallback if default_fallback in models_in_pkg else resolved.get("model") or models_in_pkg[0]
+            )
+            if not gen_defaults:
+                gen_defaults = app.package.manifest.metadata.get("generation_defaults", {}).get(target_model, {})
         if args.command == "install":
             return dump(app.describe())
         if args.command == "compare":
@@ -328,34 +376,41 @@ def run(args):
             inputs = document(args.inputs)
             options.update(signature=args.signature, timeout_seconds=args.timeout)
             if args.command == "run":
-                return dump(app.infer(args.model, inputs, **options))
+                return dump(app.infer(target_model, inputs, **options))
             if not 1 <= args.repeat <= 1000 or not 0 <= args.warmup <= 100:
                 raise RuntimeFault("invalid_benchmark", "Use 1–1000 repeats and 0–100 warmups")
             for _ in range(args.warmup):
-                app.infer(args.model, inputs, **options)
+                app.infer(target_model, inputs, **options)
             values, result = [], None
             for _ in range(args.repeat):
                 started = time.monotonic()
-                result = app.infer(args.model, inputs, **options)
+                result = app.infer(target_model, inputs, **options)
                 values.append((time.monotonic() - started) * 1000)
             return dump({"iterations": len(values), "round_trip_ms": {"min": min(values), "median": statistics.median(values), "max": max(values)},
                          "last_execution": result["execution"]})
         if args.command == "classify":
-            return dump(app.classify(args.model, args.image.read_bytes(), top_k=args.top_k, **options))
-        options["generation"] = {"max_output_tokens": args.max_tokens, "temperature": args.temperature,
-                                  "timeout_seconds": args.timeout, "stop": args.stop}
+            return dump(app.classify(target_model, args.image.read_bytes(), top_k=args.top_k, **options))
+        max_tokens = args.max_tokens if args.max_tokens is not None else (gen_defaults.get("max_output_tokens") or 128)
+        temperature = args.temperature if args.temperature is not None else (gen_defaults.get("temperature") if gen_defaults.get("temperature") is not None else 0.0)
+        gen_payload = {"max_output_tokens": max_tokens, "temperature": temperature,
+                       "timeout_seconds": args.timeout, "stop": args.stop}
+        if args.temperature is None and gen_defaults.get("top_p") is not None and temperature > 0:
+            gen_payload["top_p"] = gen_defaults["top_p"]
+        if args.temperature is None and gen_defaults.get("top_k") is not None and temperature > 0:
+            gen_payload["top_k"] = gen_defaults["top_k"]
+        options["generation"] = gen_payload
         if args.messages:
             if args.session or args.agent:
                 raise RuntimeFault("invalid_chat_options", "Use --prompt for persisted sessions and packaged agents")
             messages = document(args.messages)
-            result = app.chat_stream(args.model, messages, **options) if args.stream else app.chat(args.model, messages, **options)
+            result = app.chat_stream(target_model, messages, **options) if args.stream else app.chat(target_model, messages, **options)
         elif args.session or args.agent:
-            session_id = args.session or app.create_session(args.model)["id"]
+            session_id = args.session or app.create_session(target_model)["id"]
             options.update(turn_id=args.turn_id or str(uuid.uuid4()), agent=args.agent)
             result = app.send_stream(session_id, args.prompt, **options) if args.stream else app.send(session_id, args.prompt, **options)
         else:
             messages = [{"role": "user", "content": args.prompt}]
-            result = app.chat_stream(args.model, messages, **options) if args.stream else app.chat(args.model, messages, **options)
+            result = app.chat_stream(target_model, messages, **options) if args.stream else app.chat(target_model, messages, **options)
         if args.stream:
             for event in result:
                 if args.json:

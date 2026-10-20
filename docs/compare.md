@@ -1,6 +1,6 @@
 # Compare variants on your data
 
-`dtr compare` answers two questions:
+`localkit compare` answers two questions:
 - What can this machine run?
 - What does a quantization or engine change on my own inputs?
 
@@ -8,8 +8,8 @@ It runs every variant of one model that this machine can run, on the same
 inputs, and ranks the results.
 
 ```sh
-uv run dtr compare .work/chat --inputs prompts.jsonl
-uv run dtr compare .work/vision --inputs images.jsonl --json
+uv run localkit compare .work/chat --inputs prompts.jsonl
+uv run localkit compare .work/vision --inputs images.jsonl --json
 ```
 
 ## Inputs
@@ -52,7 +52,7 @@ them and others don't.
 ## Example
 
 Run on an Apple M5 Max with Qwen3 0.6B and 8 short prompts that have expected
-answers (`dtr compare … --max-tokens 48`):
+answers (`localkit compare … --max-tokens 48`):
 
 | rank | variant | backend | accuracy | agreement | identical | latency | tok/s | peak mem | load |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

@@ -1,4 +1,4 @@
-"""`dtr compare`: every runnable variant on the same inputs, ranked.
+"""`localkit compare`: every runnable variant on the same inputs, ranked.
 
 Variants are local-server bindings to one scripted OpenAI-compatible server,
 each served model answering differently, so ranking runs through real workers.

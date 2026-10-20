@@ -1,4 +1,4 @@
-"""Linux child launcher: a cancelled DTR worker must not leave NPU work running."""
+"""Linux child launcher: a cancelled LocalKit worker must not leave NPU work running."""
 
 import ctypes
 import os

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Register already installed ARM64 QNN libraries and runners with DTR."""
+"""Register already installed ARM64 QNN libraries and runners with LocalKit."""
 
 import argparse
 import hashlib

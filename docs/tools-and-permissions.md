@@ -1,7 +1,7 @@
 # Tools, data permissions, and fine-tuning
 
-**Keep the same tools and app permissions when DTR changes inference engines.**
-A model proposes a function call. DTR validates its arguments, resolves the
+**Keep the same tools and app permissions when LocalKit changes inference engines.**
+A model proposes a function call. LocalKit validates its arguments, resolves the
 affected resources using app code, checks access, then invokes an app-owned
 handler. A downloaded model or adapter does not grant itself new permissions.
 
@@ -15,7 +15,7 @@ and [gdp-ts](https://github.com/rauchg/gdp-ts):
 2. **gdp-ts carries the checked decision through TypeScript.** The privileged
    executor requires a proof about that specific user and request. The prover
    stays private; the upstream lint rules and compile-time tests guard its use.
-3. **DTR checks it at runtime too.** Each proof gets a unique, instance-owned
+3. **LocalKit checks it at runtime too.** Each proof gets a unique, instance-owned
    handle, bound to the request, arguments, and policy revision. Forgery, reuse,
    changed arguments, and replacement of the policy invalidate it. No proof is
    accepted over HTTP or reconstructed from JSON.
@@ -28,7 +28,7 @@ at their native gateways; they do not embed JavaScript to run Permix. Shared
 ## The developer interface
 
 Use your app's existing authentication and consent flow to construct rules.
-There is no additional login, DTR app, permission server, or background service.
+There is no additional login, LocalKit app, permission server, or background service.
 The first policy format is deliberately small: exact subject/resource matches,
 default deny, and explicit deny taking precedence. Every resource required by a
 tool must pass. Reading, writing, exporting, executing, and training are separate
@@ -66,7 +66,7 @@ do not trust a proposed `ownerId`. New rules from the app's consent system can
 be installed with `permissions.replace(document)`. The next invocation checks
 the new policy, including requests for cached tool results. In Python,
 `replace()` currently waits for in-flight policy-checked tool calls to return;
-see [review follow-ups](https://github.com/maceip/DTR/blob/main/docs/review-followups.md#policy-lock-held-for-the-whole-tool-call).
+see [review follow-ups](https://github.com/maceip/LocalKit/blob/main/docs/review-followups.md#policy-lock-held-for-the-whole-tool-call).
 
 In Python, pass `permissions=PermissionPolicy(document), subject="alice"` to
 `Runtime`, then register tools with `runtime.tool_gateway.register(...,
@@ -125,7 +125,7 @@ npm --prefix sdk/typescript run build
 node examples/permissions/demo.mjs
 ```
 
-These are permissions on operations routed through DTR. They do not sandbox
+These are permissions on operations routed through LocalKit. They do not sandbox
 trusted app handlers, track information flow after text enters a conversation,
 erase conversation history on revocation, or protect against a compromised
 native engine. Apps still own authentication, storage isolation and history

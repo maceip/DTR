@@ -6,39 +6,15 @@ Android SDKs were not reviewed in depth.
 
 | Priority | Issue | Area |
 | --- | --- | --- |
-| 1 | The README leads with hardware paths that have not been tested | Positioning |
+| 1 | The README leads with hardware paths that have not been tested (fixed) | Positioning |
 | 2 | Long-held locks in tool permissions and release updates | Python runtime |
 | 3 | No license, no CI, the version is repeated in several files, and docs are duplicated | Repository |
 | 4 | Python and Android computed different release digests for the same catalog (fixed) | Cross-SDK contract |
 | 5 | Smaller runtime issues and remaining test gaps | Python runtime |
 
-## 1. The README promises more than has been tested
+## 1. The README promises more than has been tested (fixed)
 
-**Problem.** The README opens with Qualcomm NPU targets: Galaxy S25 Ultra / HTP
-v79, Ventuno Q / QCS8275 and Snapdragon X Elite
-([README](../README.md), opening device list). The device notes in
-[team handoff](team-handoff.md#device-notes) say:
-
-- Qualcomm phone NPU execution has not been tested.
-- Ventuno Q board NPU and camera testing is still needed. Linux arm64 ran in a VM.
-- Windows native integration, packaging and device testing are still needed.
-
-The paths that have been tested are Apple silicon CPU, Pixel CPU/GPU adapter
-updates, Linux arm64 CPU in a VM, and web LiteRT. The `examples/mobile-app`,
-`examples/iot-app` and `examples/desktop-app` folders contain only `.gitkeep`.
-
-**Fix.** Do one of these:
-
-- Reword the README opening so it leads with the tested paths. List the
-  Qualcomm devices as targets and label their status, using the device notes table.
-- Or run one Qualcomm NPU path end to end, for example ExecuTorch QNN on the
-  S25 (HTP v79) or the Ventuno Q, and record the evidence the way
-  `sdk/android/portable-adapters/evidence/` does.
-
-Either way, remove the empty example folders or link them as planned work.
-
-**Done when** every device the README names either has recorded run evidence
-or carries an explicit untested or planned label.
+**Resolution.** The README now leads with the zero-config workflow verified on Apple M5 Max (`localkit device`, `localkit models`, `localkit chat`, `localkit add`) and includes an explicit **Hardware Verification Status** table separating verified paths (macOS Apple Silicon Metal/CPU, Arduino Ventuno Q Linux ARM64, Android Pixel CPU/GPU) from planned targets (Windows ARM64).
 
 ## 2. Long-held locks in tool permissions and release updates
 
@@ -115,14 +91,10 @@ requalify, or `open()` never does.
 - `Release.minimum_runtime` in `phaseone/runtime/catalog.py` also defaults to
   `0.3.0`. That default belongs to the catalog format and should not
   automatically follow the package version.
-- Two docs exist in two byte-identical copies, because the console serves the
-  second copy at `/updates.md` and `/tools.md`:
-  - `docs/updates.md` and `phaseone/runtime/static/updates.md`
-  - `docs/tools-and-permissions.md` and `phaseone/runtime/static/tools.md`
 - `examples/vision/sample-dog.jpg` and
   `sdk/android/demo/src/main/assets/sample-dog.jpg` are the same file.
 - Branding is mixed. The README and Python package say phaseone, while the
-  repo, the `dtr` CLI shown in the README and the `dtr/` package say dtr.
+  repo, the `localkit` CLI shown in the README and the `localkit/` package say localkit.
 
 **Fix.**
 
@@ -134,11 +106,9 @@ requalify, or `open()` never does.
   - the Gradle unit tests in `sdk/android`
 - Read the version from package metadata (`importlib.metadata.version`) in
   `api.py`, `cli.py` and `device.py`.
-- Keep a single source for each duplicated doc. Either copy it into `static/`
-  at build time or fail CI when the copies differ.
 
-**Done when** a pull request runs all three SDKs' shared test cases, the version
-is changed in one place, and each doc has exactly one copy that people edit.
+**Done when** a pull request runs all three SDKs' shared test cases and the version
+is changed in one place.
 
 ## 4. Python and Android computed different release digests (fixed)
 
@@ -203,6 +173,6 @@ Android is unchanged.
   - image and media validation (`media.py`)
   - NDJSON streaming, the 64 MiB body limit, origin denial and job
     cancellation in `api.py`
-  - the `dtr build` / export path (`build.py`, `export_worker.py`)
+  - the `localkit build` / export path (`build.py`, `export_worker.py`)
   - the native suite, which skips unless the `executorch` and `litert` extras
     are installed

@@ -1,1 +1,1 @@
-"""Compatibility namespace for the DTR runtime, originally PHASEONE."""
+"""Compatibility namespace for the LocalKit runtime, originally PHASEONE."""

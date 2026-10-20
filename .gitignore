@@ -3,7 +3,7 @@
 .work/
 .state/
 .phaseone/
-.dtr/
+.localkit/
 .env
 .env.*
 *.key
@@ -22,7 +22,6 @@ build/
 .gradle/
 .kotlin/
 local.properties
-phaseone/runtime/static/sdk/
 # Downloaded models belong in the release data channel.
 *.pte
 *.ptd

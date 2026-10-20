@@ -1,4 +1,4 @@
-# DTR Android runtime · 0.3.0
+# LocalKit Android runtime · 0.3.0
 
 Embedded ExecuTorch and LiteRT/LiteRT-LM, with a shared model-release contract
 for desktop and Android. Inference runs inside the app. A Mac inference server
@@ -14,7 +14,7 @@ and resource permissions before invoking registered app handlers. JSON tool
 calls use a common `ToolCall` shape; unsupported tool protocols/schemas fail
 explicitly. Fine-tuning has a consent-checked API stub and no training engine.
 
-**DTR Model CDN** is the planned managed delivery layer: device-matched models,
+**LocalKit Model CDN** is the planned managed delivery layer: device-matched models,
 fast-follow installation, streamed delivery, and compatible updates through this
 SDK. Its hosted service, automatic lifecycle integration, and generated Android
 packaging are not shipping yet. See the [delivery design](../../docs/updates.md).
